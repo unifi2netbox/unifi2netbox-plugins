@@ -79,7 +79,7 @@ Use secret references, not plaintext:
 1. Bump version in:
    - `pyproject.toml` (`[project].version`)
    - `netbox_unifi_sync/version.py` (`__version__`)
-2. Ensure repository secret `PYPI_API_TOKEN` is set.
+2. Configure PyPI Trusted Publisher (OIDC) for this repository/workflow.
 3. Create and push tag `vX.Y.Z`:
    - `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
    - `git push origin vX.Y.Z`

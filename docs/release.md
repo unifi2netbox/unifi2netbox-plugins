@@ -9,9 +9,17 @@ This plugin is published as:
 
 1. Create project on PyPI:
    - `netbox-unifi-sync`
-2. Create PyPI API token with publish permissions.
-3. Add GitHub repository secret:
-   - `PYPI_API_TOKEN`
+2. Configure **PyPI Trusted Publisher** (GitHub OIDC) with:
+   - **PyPI Project Name**: `netbox-unifi-sync`
+   - **Owner**: `unifi2netbox`
+   - **Repository name**: `unifi2netbox-plugins`
+   - **Workflow name**: `publish-python-package.yml`
+   - **Environment name**: `pypi`
+3. In GitHub repository settings, create environment:
+   - `pypi`
+
+Read more: GitHub Actions OpenID Connect support  
+https://docs.github.com/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect
 
 ## Versioning Rules
 
@@ -31,9 +39,11 @@ Configured workflows:
   - creates GitHub Release
 - `publish-python-package.yml`:
   - runs on `release: published` (or manual dispatch)
+  - uses environment `pypi`
+  - uses GitHub OIDC (`id-token: write`)
   - builds package (`sdist` + `wheel`)
   - runs `twine check`
-  - publishes to PyPI via `PYPI_API_TOKEN`
+  - publishes to PyPI without API token secret
 
 ## Recommended Release Commands
 
