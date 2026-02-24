@@ -102,85 +102,265 @@ def _fetch_legacy_networkconf(unifi, site_obj):
     return None
 
 
-def extract_dhcp_ranges_from_unifi(site_obj, unifi=None) -> list[ipaddress.IPv4Network]:
-    """Extract DHCP ranges from UniFi network configs for a site."""
-    networks_result = []
+def _collect_unifi_network_configs(site_obj, unifi=None) -> list[dict]:
+    net_configs = []
     try:
-        net_configs = site_obj.network_conf.all()
+        net_configs = list(site_obj.network_conf.all() or [])
     except Exception as e:
-        logger.warning(f"Could not fetch network configs for DHCP range extraction: {e}")
-        return networks_result
+        logger.warning(f"Could not fetch network configs for DHCP parsing: {e}")
+        net_configs = []
 
-    if net_configs and "dhcpd_enabled" not in net_configs[0] and unifi:
-        logger.debug("Integration API lacks DHCP fields, falling back to Legacy API")
+    # Integration API can omit DHCP fields on some records.
+    # Merge legacy networkconf to avoid losing data.
+    if unifi:
         legacy_configs = _fetch_legacy_networkconf(unifi, site_obj)
         if legacy_configs:
-            net_configs = legacy_configs
-        else:
-            logger.debug("Legacy API fallback returned no data")
-            return networks_result
+            net_configs.extend(list(legacy_configs))
 
-    network_info_list = []
+    return net_configs
+
+
+def _extract_subnet_from_network(net: dict) -> str | None:
+    subnet = (
+        net.get("ip_subnet")
+        or net.get("subnet")
+        or net.get("ipSubnet")
+        or net.get("ipv4_subnet")
+    )
+    return str(subnet).strip() if subnet else None
+
+
+def _extract_gateway_from_network(net: dict) -> str | None:
+    gateway = net.get("gateway_ip") or net.get("gateway")
+    return str(gateway).strip() if gateway else None
+
+
+def _extract_dns_from_network(net: dict) -> list[str]:
+    dns_servers = []
+    for key in (
+        "dhcpd_dns_1",
+        "dhcpd_dns_2",
+        "dhcpd_dns_3",
+        "dhcpd_dns_4",
+        "dhcpdDns1",
+        "dhcpdDns2",
+        "dhcpdDns3",
+        "dhcpdDns4",
+    ):
+        val = net.get(key)
+        if val and str(val).strip():
+            dns_servers.append(str(val).strip())
+
+    seen_dns = set()
+    unique_dns = []
+    for item in dns_servers:
+        if item not in seen_dns:
+            seen_dns.add(item)
+            unique_dns.append(item)
+    return unique_dns
+
+
+def _parse_ip_in_network(value, network):
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+
+    try:
+        candidate = ipaddress.ip_address(text)
+        if candidate in network:
+            return candidate
+        return None
+    except ValueError:
+        pass
+
+    if text.isdigit():
+        try:
+            offset = int(text)
+            if offset < 0:
+                return None
+            candidate = ipaddress.ip_address(int(network.network_address) + offset)
+            if candidate in network:
+                return candidate
+        except (ValueError, OverflowError):
+            return None
+    return None
+
+
+def _normalize_dhcp_pool(network, gateway, start, end):
+    # Only create DHCP pools for IPv4 subnets.
+    if getattr(network, "version", 4) != 4:
+        return None, None
+    if network.num_addresses <= 2:
+        return None, None
+
+    min_host = ipaddress.ip_address(int(network.network_address) + 1)
+    max_host = ipaddress.ip_address(int(network.broadcast_address) - 1)
+
+    start_ip = start or min_host
+    end_ip = end or max_host
+
+    if int(start_ip) < int(min_host):
+        start_ip = min_host
+    if int(end_ip) > int(max_host):
+        end_ip = max_host
+
+    if int(start_ip) > int(end_ip):
+        start_ip, end_ip = end_ip, start_ip
+
+    if gateway and start_ip == gateway and int(start_ip) < int(end_ip):
+        start_ip = ipaddress.ip_address(int(start_ip) + 1)
+    elif gateway and end_ip == gateway and int(start_ip) < int(end_ip):
+        end_ip = ipaddress.ip_address(int(end_ip) - 1)
+
+    if int(start_ip) > int(end_ip):
+        return None, None
+    return start_ip, end_ip
+
+
+def extract_dhcp_pools_from_unifi(site_obj, unifi=None) -> list[dict]:
+    """
+    Extract DHCP pools from UniFi network configs for a site.
+
+    Returns dictionaries with:
+      - name
+      - network (IPv4Network)
+      - gateway (str|None)
+      - dns (list[str])
+      - start (IPv4Address)
+      - end (IPv4Address)
+    """
+    net_configs = _collect_unifi_network_configs(site_obj, unifi=unifi)
+    pools_by_subnet: dict[str, dict] = {}
+    network_info_by_subnet: dict[str, dict] = {}
 
     for net in net_configs:
         net_name = net.get("name") or net.get("purpose") or "unknown"
-        dhcp_enabled = net.get("dhcpd_enabled") or net.get("dhcpdEnabled") or False
+        dhcp_enabled = (
+            net.get("dhcpd_enabled")
+            or net.get("dhcpdEnabled")
+            or net.get("dhcp_enabled")
+            or net.get("dhcpEnabled")
+            or False
+        )
         if not dhcp_enabled:
             continue
 
-        subnet = net.get("ip_subnet") or net.get("subnet")
+        subnet = _extract_subnet_from_network(net)
         if not subnet:
             continue
 
         try:
             network = ipaddress.ip_network(subnet, strict=False)
-            networks_result.append(network)
-            logger.debug(f"Found DHCP-enabled network '{net_name}': {subnet}")
-
-            gateway = net.get("gateway_ip") or net.get("gateway") or None
-            dns_servers = []
-            for key in (
-                "dhcpd_dns_1",
-                "dhcpd_dns_2",
-                "dhcpd_dns_3",
-                "dhcpd_dns_4",
-                "dhcpdDns1",
-                "dhcpdDns2",
-                "dhcpdDns3",
-                "dhcpdDns4",
-            ):
-                val = net.get(key)
-                if val and str(val).strip():
-                    dns_servers.append(str(val).strip())
-
-            seen_dns = set()
-            unique_dns = []
-            for d in dns_servers:
-                if d not in seen_dns:
-                    seen_dns.add(d)
-                    unique_dns.append(d)
-
-            network_info_list.append(
-                {
-                    "network": network,
-                    "gateway": gateway,
-                    "dns": unique_dns,
-                    "name": net_name,
-                }
-            )
-            if gateway or unique_dns:
-                logger.debug(f"Network '{net_name}': gateway={gateway}, dns={unique_dns}")
-
         except ValueError:
             logger.warning(f"Invalid subnet '{subnet}' in UniFi network config. Skipping.")
+            continue
+
+        gateway_raw = _extract_gateway_from_network(net)
+        gateway = _parse_ip_in_network(gateway_raw, network)
+        dns_values = _extract_dns_from_network(net)
+
+        start_raw = (
+            net.get("dhcpd_start")
+            or net.get("dhcpdStart")
+            or net.get("dhcp_start")
+            or net.get("dhcpStart")
+            or net.get("dhcpd_start_addr")
+            or net.get("dhcpdStartAddr")
+        )
+        end_raw = (
+            net.get("dhcpd_stop")
+            or net.get("dhcpdStop")
+            or net.get("dhcp_stop")
+            or net.get("dhcpStop")
+            or net.get("dhcpd_stop_addr")
+            or net.get("dhcpdStopAddr")
+        )
+        start_ip = _parse_ip_in_network(start_raw, network)
+        end_ip = _parse_ip_in_network(end_raw, network)
+        has_explicit_range = bool(start_ip and end_ip)
+        start_ip, end_ip = _normalize_dhcp_pool(network, gateway, start_ip, end_ip)
+        if not start_ip or not end_ip:
+            logger.debug(
+                "Skipping DHCP pool for network '%s' (%s): cannot derive valid start/end",
+                net_name,
+                subnet,
+            )
+            continue
+
+        subnet_key = str(network)
+        pool = {
+            "name": net_name,
+            "network": network,
+            "gateway": str(gateway) if gateway else None,
+            "dns": dns_values,
+            "start": start_ip,
+            "end": end_ip,
+            "_has_explicit_range": has_explicit_range,
+        }
+        existing = pools_by_subnet.get(subnet_key)
+        if existing is None:
+            pools_by_subnet[subnet_key] = pool
+        else:
+            existing_explicit = bool(existing.get("_has_explicit_range"))
+            candidate_explicit = bool(pool.get("_has_explicit_range"))
+            should_replace = False
+            if candidate_explicit and not existing_explicit:
+                should_replace = True
+            elif candidate_explicit == existing_explicit:
+                if not existing.get("gateway") and pool.get("gateway"):
+                    should_replace = True
+                elif len(existing.get("dns", [])) < len(pool.get("dns", [])):
+                    should_replace = True
+            if should_replace:
+                pools_by_subnet[subnet_key] = pool
+
+        info_candidate = {
+            "network": network,
+            "gateway": str(gateway) if gateway else None,
+            "dns": dns_values,
+            "name": net_name,
+            "dhcp_start": str(start_ip),
+            "dhcp_end": str(end_ip),
+        }
+        current_info = network_info_by_subnet.get(subnet_key)
+        if current_info is None or (not current_info.get("gateway") and info_candidate.get("gateway")) or len(current_info.get("dns", [])) < len(info_candidate.get("dns", [])):
+            network_info_by_subnet[subnet_key] = info_candidate
 
     site_id = getattr(site_obj, "id", None) or getattr(site_obj, "_id", None)
-    if site_id and network_info_list:
+    if site_id:
         with _unifi_network_info_lock:
-            _unifi_network_info[site_id] = network_info_list
+            if network_info_by_subnet:
+                _unifi_network_info[site_id] = list(network_info_by_subnet.values())
+            else:
+                _unifi_network_info.pop(site_id, None)
+
+    pools = []
+    for pool in pools_by_subnet.values():
+        item = dict(pool)
+        item.pop("_has_explicit_range", None)
+        pools.append(item)
+    return pools
+
+
+def extract_dhcp_ranges_from_unifi(site_obj, unifi=None) -> list[ipaddress.IPv4Network]:
+    """Extract DHCP subnet CIDRs from UniFi network configs for a site."""
+    pools = extract_dhcp_pools_from_unifi(site_obj, unifi=unifi)
+    seen = set()
+    networks_result = []
+    for pool in pools:
+        network = pool.get("network")
+        if not network:
+            continue
+        key = str(network)
+        if key in seen:
+            continue
+        seen.add(key)
+        networks_result.append(network)
+        logger.debug(f"Found DHCP-enabled network '{pool.get('name', 'unknown')}': {key}")
 
     return networks_result
-
 
 def get_all_dhcp_ranges() -> list[ipaddress.IPv4Network]:
     """Return merged DHCP ranges from env var + all discovered UniFi sites."""

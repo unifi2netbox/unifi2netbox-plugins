@@ -18,7 +18,8 @@ from sync import vrf as vrf_helpers
 from sync.ipam import (
     _get_network_info_for_ip,
     _fetch_legacy_networkconf,
-    extract_dhcp_ranges_from_unifi,
+    extract_dhcp_pools_from_unifi,
+    extract_dhcp_ranges_from_unifi,  # backward-compatible test/import surface
     find_available_static_ip,
     is_ip_in_dhcp_range,
     set_unifi_device_static_ip,
@@ -888,6 +889,61 @@ def sync_site_prefixes(nb, site_obj, nb_site, tenant, unifi=None):
                 logger.info(f"Created prefix {prefix_cidr} (without site scope)")
         except pynetbox.core.query.RequestError as e:
             logger.warning(f"Could not create prefix {prefix_cidr}: {e}")
+
+
+def sync_site_dhcp_ip_ranges(nb, nb_site, tenant, dhcp_pools):
+    """Create/update NetBox IP ranges from discovered UniFi DHCP pools."""
+    if not dhcp_pools:
+        return
+
+    seen_ranges = set()
+    for pool in dhcp_pools:
+        network = pool.get("network")
+        start_ip = pool.get("start")
+        end_ip = pool.get("end")
+        pool_name = pool.get("name") or "UniFi DHCP"
+        if not network or not start_ip or not end_ip:
+            continue
+
+        start_address = f"{start_ip}/{network.prefixlen}"
+        end_address = f"{end_ip}/{network.prefixlen}"
+        range_key = (start_address, end_address)
+        if range_key in seen_ranges:
+            continue
+        seen_ranges.add(range_key)
+
+        existing = nb.ipam.ip_ranges.get(start_address=start_address, end_address=end_address)
+        if not existing:
+            existing = nb.ipam.ip_ranges.get(start_address=str(start_ip), end_address=str(end_ip))
+
+        description = f"UniFi DHCP: {pool_name}"
+        if existing:
+            changed = False
+            if getattr(existing, "description", "") != description:
+                existing.description = description
+                changed = True
+            if changed:
+                try:
+                    existing.save()
+                except Exception as e:
+                    logger.warning(f"Failed to update DHCP IP range {start_address}-{end_address}: {e}")
+            continue
+
+        payload = {
+            "start_address": start_address,
+            "end_address": end_address,
+            "status": "active",
+            "tenant_id": tenant.id,
+            "description": description,
+        }
+        try:
+            created = nb.ipam.ip_ranges.create(payload)
+            if created:
+                logger.info(
+                    f"Created DHCP IP range {start_address} - {end_address} at site {nb_site.name}"
+                )
+        except pynetbox.core.query.RequestError as e:
+            logger.warning(f"Could not create DHCP IP range {start_address}-{end_address}: {e}")
 
 
 def sync_site_wlans(nb, site_obj, nb_site, tenant):
@@ -2102,14 +2158,33 @@ def process_site(unifi, nb, site_obj, site_display_name, nb_site, nb_ubiquity, t
             # Auto-discover DHCP ranges from UniFi network configs
             if os.getenv("DHCP_AUTO_DISCOVER", "true").strip().lower() in ("true", "1", "yes"):
                 try:
-                    site_dhcp_ranges = extract_dhcp_ranges_from_unifi(site_obj, unifi=unifi)
-                    if site_dhcp_ranges:
-                        with _unifi_dhcp_ranges_lock:
+                    site_dhcp_pools = extract_dhcp_pools_from_unifi(site_obj, unifi=unifi)
+                    site_dhcp_ranges = []
+                    seen_networks = set()
+                    for pool in site_dhcp_pools:
+                        network = pool.get("network")
+                        if not network:
+                            continue
+                        key = str(network)
+                        if key in seen_networks:
+                            continue
+                        seen_networks.add(key)
+                        site_dhcp_ranges.append(network)
+
+                    with _unifi_dhcp_ranges_lock:
+                        if site_dhcp_ranges:
                             _unifi_dhcp_ranges[nb_site.id] = site_dhcp_ranges
+                        else:
+                            _unifi_dhcp_ranges.pop(nb_site.id, None)
+
+                    if site_dhcp_ranges:
                         logger.info(
                             f"Discovered {len(site_dhcp_ranges)} DHCP range(s) from UniFi "
                             f"for site {site_display_name}: {[str(n) for n in site_dhcp_ranges]}"
                         )
+
+                    if _parse_env_bool(os.getenv("SYNC_DHCP_RANGES"), default=True):
+                        sync_site_dhcp_ip_ranges(nb, nb_site, tenant, site_dhcp_pools)
                 except Exception as e:
                     logger.warning(f"Failed to extract DHCP ranges for site {site_display_name}: {e}")
 

@@ -117,6 +117,8 @@ Notes:
 
 When a device IP is in a DHCP range, static replacement logic assigns a free IP from the same prefix (except gateways). Gateway and DNS are read from UniFi's network config (`gateway_ip`, `dhcpd_dns_1-4`). If unavailable, `DEFAULT_GATEWAY` and `DEFAULT_DNS` env vars are used as fallback.
 
+Discovered UniFi DHCP pools are also synced into NetBox as `IP Ranges` inside the corresponding prefix (toggle with `SYNC_DHCP_RANGES`).
+
 Important: DHCP-to-static conversion also updates the device IP configuration in UniFi (writeback for that specific flow).
 To avoid UniFi writeback entirely, disable DHCP conversion inputs:
 - `DHCP_AUTO_DISCOVER=false`
@@ -128,6 +130,8 @@ To avoid UniFi writeback entirely, disable DHCP conversion inputs:
 |---|---|---|
 | `SYNC_INTERFACES` | `true` | Sync physical ports and radios |
 | `SYNC_VLANS` | `true` | Sync VLANs |
+| `SYNC_PREFIXES` | `true` | Sync Prefixes |
+| `SYNC_DHCP_RANGES` | `true` | Create DHCP scopes as NetBox IP Ranges |
 | `SYNC_WLANS` | `true` | Sync WLANs |
 | `SYNC_CABLES` | `true` | Sync uplink cables |
 | `SYNC_STALE_CLEANUP` | `true` | Mark missing devices offline |
