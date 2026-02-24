@@ -4,7 +4,7 @@ from django.urls import path
 
 from . import views
 
-app_name = "netbox_unifi2netbox"
+app_name = "unifi2netbox"
 
 urlpatterns = (
     path("", views.status_view, name="status"),

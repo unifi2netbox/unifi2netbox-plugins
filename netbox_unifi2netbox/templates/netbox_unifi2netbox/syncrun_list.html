@@ -4,7 +4,7 @@
 <div class="card mb-3">
   <div class="card-header d-flex justify-content-between align-items-center">
     <h3 class="card-title mb-0">Sync Runs</h3>
-    <a class="btn btn-outline-primary btn-sm" href="{% url 'plugins:netbox_unifi2netbox:status' %}">Back to status</a>
+    <a class="btn btn-outline-primary btn-sm" href="{% url 'plugins:unifi2netbox:status' %}">Back to status</a>
   </div>
   <div class="card-body">
     <form method="get" class="row g-3">
@@ -41,7 +41,7 @@
         <tbody>
           {% for run in runs %}
             <tr>
-              <td><a href="{% url 'plugins:netbox_unifi2netbox:syncrun_detail' run.pk %}">#{{ run.pk }}</a></td>
+              <td><a href="{% url 'plugins:unifi2netbox:syncrun_detail' run.pk %}">#{{ run.pk }}</a></td>
               <td>{{ run.created }}</td>
               <td>{{ run.get_status_display }}</td>
               <td>{{ run.trigger }}</td>

@@ -51,7 +51,7 @@ class SyncRun(models.Model):
         return f"SyncRun#{self.pk} ({self.status})"
 
     def get_absolute_url(self):
-        return reverse("plugins:netbox_unifi2netbox:syncrun_detail", args=[self.pk])
+        return reverse("plugins:unifi2netbox:syncrun_detail", args=[self.pk])
 
     def mark_running(self):
         self.status = SyncRunStatus.RUNNING

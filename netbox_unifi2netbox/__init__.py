@@ -15,6 +15,7 @@ class Unifi2NetBoxPluginConfig(PluginConfig):
     verbose_name = "UniFi2NetBox"
     description = "Synchronize UniFi inventory into NetBox"
     version = "0.2.0"
+    author = "Patrick Lind"
     base_url = "unifi2netbox"
     min_version = "4.0.0"
     default_settings = DEFAULT_SETTINGS

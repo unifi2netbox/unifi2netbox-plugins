@@ -63,3 +63,4 @@ unifi/spec_refresh.py
 unifi/unifi.py
 unifi/wlanconf.py
 unifi2netbox/__init__.py
+unifi2netbox/urls.py

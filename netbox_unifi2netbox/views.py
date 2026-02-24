@@ -36,7 +36,7 @@ def status_view(request: HttpRequest) -> HttpResponse:
                 job_identifier = getattr(job, "id", None) or getattr(job, "pk", None) or "queued"
                 mode = "dry run" if dry_run else "full sync"
                 messages.success(request, f"Queued {mode} job ({job_identifier}).")
-            return redirect("plugins:netbox_unifi2netbox:status")
+            return redirect("plugins:unifi2netbox:status")
 
     context = {
         "latest_run": latest_run,

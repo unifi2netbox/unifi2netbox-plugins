@@ -7,7 +7,7 @@
     <div class="card mb-3">
       <div class="card-header d-flex justify-content-between align-items-center">
         <h3 class="card-title mb-0">UniFi Sync Status</h3>
-        <a class="btn btn-outline-primary btn-sm" href="{% url 'plugins:netbox_unifi2netbox:syncrun_list' %}">View all runs</a>
+        <a class="btn btn-outline-primary btn-sm" href="{% url 'plugins:unifi2netbox:syncrun_list' %}">View all runs</a>
       </div>
       <div class="card-body">
         {% if latest_run %}
@@ -60,7 +60,7 @@
           <tbody>
             {% for run in recent_runs %}
               <tr>
-                <td><a href="{% url 'plugins:netbox_unifi2netbox:syncrun_detail' run.pk %}">#{{ run.pk }}</a></td>
+                <td><a href="{% url 'plugins:unifi2netbox:syncrun_detail' run.pk %}">#{{ run.pk }}</a></td>
                 <td>{{ run.created }}</td>
                 <td>{{ run.get_status_display }}</td>
                 <td>{% if run.dry_run %}Dry run{% else %}Sync{% endif %}</td>
