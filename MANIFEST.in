@@ -1,0 +1,2 @@
+include data/ubiquiti_device_specs.json
+recursive-include netbox_unifi2netbox/data *.json

@@ -7,6 +7,8 @@ Exception: when DHCP-to-static conversion is enabled and triggered, the tool upd
 
 [Quick Start](#quick-start) • [Configuration](#configuration) • [Cleanup](#cleanup) • [Testing](#testing) • [Documentation](#documentation)
 
+This repository now also ships a **NetBox plugin package** (`netbox_unifi2netbox`) in addition to the standalone runner.
+
 ## At a Glance
 
 | Topic | Details |
@@ -74,6 +76,41 @@ sudo bash lxc/install.sh
 systemctl start unifi2netbox
 journalctl -u unifi2netbox -f
 ```
+
+### NetBox Plugin installation
+
+Install into your NetBox Python environment:
+
+```bash
+pip install /path/to/unifi2netbox-plugins
+```
+
+In NetBox `configuration.py`:
+
+```python
+PLUGINS = ["netbox_unifi2netbox"]
+
+PLUGINS_CONFIG = {
+    "netbox_unifi2netbox": {
+        "unifi_urls": ["https://controller.example.com/proxy/network/integration/v1"],
+        "unifi_api_key": "your-unifi-api-key",
+        "netbox_url": "https://netbox.example.com",
+        "netbox_token": "your-netbox-api-token",
+        "netbox_import_tenant": "Organization Name",
+        "netbox_roles": {
+            "WIRELESS": "Wireless AP",
+            "LAN": "Switch",
+            "GATEWAY": "Gateway Firewall",
+            "ROUTER": "Router",
+            "UNKNOWN": "Network Device",
+        },
+        # 0 disables built-in scheduler; set >0 to register a system job interval
+        "sync_interval_minutes": 0,
+    }
+}
+```
+
+Then restart NetBox services.
 
 ## Configuration
 
@@ -188,6 +225,12 @@ Current suite: **109 tests**.
 │   ├── log_sanitizer.py
 │   ├── runtime_config.py
 │   └── vrf.py
+├── netbox_unifi2netbox/
+│   ├── __init__.py
+│   ├── configuration.py
+│   ├── jobs.py
+│   └── data/
+│       └── ubiquiti_device_specs.json
 ├── unifi/
 │   ├── unifi.py
 │   ├── resources.py
@@ -213,6 +256,7 @@ Current suite: **109 tests**.
 
 - [`docs/configuration.md`](docs/configuration.md)
 - [`docs/cleanup.md`](docs/cleanup.md)
+- [`docs/netbox-plugin.md`](docs/netbox-plugin.md)
 - [`docs/device-specs.md`](docs/device-specs.md)
 - [`docs/architecture.md`](docs/architecture.md)
 - [`docs/troubleshooting.md`](docs/troubleshooting.md)

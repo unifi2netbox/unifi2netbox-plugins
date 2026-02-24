@@ -1206,9 +1206,16 @@ def _load_community_specs():
     global _community_specs
     if _community_specs is not None:
         return _community_specs
-    json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "ubiquiti_device_specs.json")
-    if not os.path.exists(json_path):
-        logger.warning(f"Community device specs file not found: {json_path}")
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    custom_specs_path = (os.getenv("UNIFI_SPECS_FILE") or "").strip()
+    json_candidates = [
+        custom_specs_path,
+        os.path.join(base_dir, "data", "ubiquiti_device_specs.json"),
+        os.path.join(base_dir, "netbox_unifi2netbox", "data", "ubiquiti_device_specs.json"),
+    ]
+    json_path = next((path for path in json_candidates if path and os.path.exists(path)), None)
+    if not json_path:
+        logger.warning("Community device specs file not found in known paths.")
         _community_specs = {"by_part": {}, "by_model": {}}
         return _community_specs
     try:
@@ -2244,19 +2251,7 @@ def run_netbox_cleanup(nb, nb_ubiquity, tenant, netbox_sites_dict, all_unifi_ser
     logger.info("=== NetBox cleanup complete ===")
 
 
-if __name__ == "__main__":
-    # Parse command line arguments
-    import argparse
-    parser = argparse.ArgumentParser(description='Sync UniFi devices to NetBox')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose (debug) logging')
-    args = parser.parse_args()
-    
-    # Configure logging with appropriate level based on verbose flag
-    log_level = logging.DEBUG if args.verbose else logging.INFO
-    setup_logging(log_level)
-    
-    if args.verbose:
-        logger.debug("Verbose logging enabled")
+def _load_runtime_or_exit():
     logger.debug("Loading runtime configuration from environment variables")
     try:
         config = load_runtime_config()
@@ -2264,6 +2259,30 @@ if __name__ == "__main__":
         logger.exception(f"Failed to load runtime configuration: {e}")
         raise SystemExit(1)
     logger.debug("Runtime configuration loaded successfully")
+    return config
+
+
+def _require_unifi_credentials():
+    unifi_username = os.getenv("UNIFI_USERNAME")
+    unifi_password = os.getenv("UNIFI_PASSWORD")
+    unifi_mfa_secret = os.getenv("UNIFI_MFA_SECRET")
+    unifi_api_key = os.getenv("UNIFI_API_KEY")
+    unifi_api_key_header = os.getenv("UNIFI_API_KEY_HEADER")
+
+    if not unifi_api_key and not (unifi_username and unifi_password):
+        logger.error("Missing UniFi credentials. Set UNIFI_API_KEY or UNIFI_USERNAME + UNIFI_PASSWORD.")
+        raise SystemExit(1)
+
+    return (
+        unifi_username,
+        unifi_password,
+        unifi_mfa_secret,
+        unifi_api_key,
+        unifi_api_key_header,
+    )
+
+
+def _build_netbox_context(config):
     try:
         unifi_url_list = config['UNIFI']['URLS']
     except (KeyError, TypeError):
@@ -2272,16 +2291,13 @@ if __name__ == "__main__":
     if not unifi_url_list:
         logger.error("UniFi URL list is empty. Set UNIFI_URLS in .env (comma-separated or JSON array).")
         raise SystemExit(1)
-
-    unifi_username = os.getenv('UNIFI_USERNAME')
-    unifi_password = os.getenv('UNIFI_PASSWORD')
-    unifi_mfa_secret = os.getenv('UNIFI_MFA_SECRET')
-    unifi_api_key = os.getenv('UNIFI_API_KEY')
-    unifi_api_key_header = os.getenv('UNIFI_API_KEY_HEADER')
-
-    if not unifi_api_key and not (unifi_username and unifi_password):
-        logger.error("Missing UniFi credentials. Set UNIFI_API_KEY or UNIFI_USERNAME + UNIFI_PASSWORD.")
-        raise SystemExit(1)
+    (
+        unifi_username,
+        unifi_password,
+        unifi_mfa_secret,
+        unifi_api_key,
+        unifi_api_key_header,
+    ) = _require_unifi_credentials()
 
     # Connect to Netbox
     try:
@@ -2292,7 +2308,7 @@ if __name__ == "__main__":
     if not netbox_url:
         logger.error("NetBox URL is empty. Set NETBOX_URL in .env.")
         raise SystemExit(1)
-    netbox_token = os.getenv('NETBOX_TOKEN')
+    netbox_token = os.getenv("NETBOX_TOKEN")
     if not netbox_token:
         logger.error("Netbox token is missing from environment variables.")
         raise SystemExit(1)
@@ -2311,7 +2327,7 @@ if __name__ == "__main__":
     nb.http_session = session  # Attach the custom session
     logger.debug("NetBox API connection established")
 
-    nb_ubiquity = nb.dcim.manufacturers.get(slug='ubiquity')
+    nb_ubiquity = nb.dcim.manufacturers.get(slug="ubiquity")
     try:
         tenant_name = config['NETBOX']['TENANT']
     except (KeyError, TypeError):
@@ -2359,7 +2375,7 @@ if __name__ == "__main__":
                 role_obj = next(iter(nb.dcim.device_roles.filter(name=role_name)), None)
         if not role_obj:
             try:
-                role_obj = nb.dcim.device_roles.create({'name': role_name, 'slug': role_slug})
+                role_obj = nb.dcim.device_roles.create({"name": role_name, "slug": role_slug})
                 if role_obj:
                     logger.info(f"Role {normalized_key} ({role_name}) with ID {role_obj.id} successfully added to NetBox.")
             except pynetbox.core.query.RequestError as e:
@@ -2386,40 +2402,137 @@ if __name__ == "__main__":
     logger.debug(f"Prepared {len(netbox_sites_dict)} NetBox sites for mapping")
 
     if not nb_ubiquity:
-        nb_ubiquity = nb.dcim.manufacturers.create({'name': 'Ubiquity Networks', 'slug': 'ubiquity'})
+        nb_ubiquity = nb.dcim.manufacturers.create({"name": "Ubiquity Networks", "slug": "ubiquity"})
         if nb_ubiquity:
             logger.info(f"Ubiquity manufacturer with ID {nb_ubiquity.id} successfully added to Netbox.")
 
-    # Sync loop — run once or continuously based on SYNC_INTERVAL
-    sync_interval = _sync_interval_seconds()
+    return {
+        "config": config,
+        "unifi_url_list": unifi_url_list,
+        "unifi_username": unifi_username,
+        "unifi_password": unifi_password,
+        "unifi_mfa_secret": unifi_mfa_secret,
+        "unifi_api_key": unifi_api_key,
+        "unifi_api_key_header": unifi_api_key_header,
+        "nb": nb,
+        "nb_ubiquity": nb_ubiquity,
+        "tenant": tenant,
+        "netbox_sites_dict": netbox_sites_dict,
+    }
+
+
+def _clear_run_state():
+    _device_type_specs_done.clear()
+    _cleanup_serials_by_site.clear()
+    _assigned_static_ips.clear()
+    _unifi_dhcp_ranges.clear()
+    _unifi_network_info.clear()
+    _exhausted_static_prefixes.clear()
+    with _static_prefix_locks_lock:
+        _static_prefix_locks.clear()
+
+
+def run_sync_once(config=None, clear_state=False):
+    """
+    Run one UniFi -> NetBox sync cycle.
+
+    :param config: Optional runtime configuration dict. If omitted, loaded from env.
+    :param clear_state: Whether to clear per-run caches before processing.
+    :return: Dict with run metadata.
+    """
+    config = config or _load_runtime_or_exit()
+    context = _build_netbox_context(config)
+    if clear_state:
+        _clear_run_state()
+
+    logger.info("=== Sync run starting ===")
+    process_all_controllers(
+        context["unifi_url_list"],
+        context["unifi_username"],
+        context["unifi_password"],
+        context["unifi_mfa_secret"],
+        context["unifi_api_key"],
+        context["unifi_api_key_header"],
+        context["nb"],
+        context["nb_ubiquity"],
+        context["tenant"],
+        context["netbox_sites_dict"],
+        context["config"],
+    )
+    run_netbox_cleanup(
+        context["nb"],
+        context["nb_ubiquity"],
+        context["tenant"],
+        context["netbox_sites_dict"],
+        _cleanup_serials_by_site,
+    )
+    logger.info("=== Sync run complete ===")
+    return {
+        "controllers": len(context["unifi_url_list"]),
+        "sites": len(context["netbox_sites_dict"]),
+    }
+
+
+def run_sync_loop(config=None, sync_interval=None):
+    """
+    Run sync once or continuously.
+
+    :param config: Optional runtime configuration dict. If omitted, loaded from env.
+    :param sync_interval: Optional override in seconds. If None, reads SYNC_INTERVAL.
+    """
+    config = config or _load_runtime_or_exit()
+    context = _build_netbox_context(config)
+    interval = _sync_interval_seconds() if sync_interval is None else max(0, int(sync_interval))
+
     import time as _time
     run_count = 0
     while True:
         run_count += 1
-        # Clear per-run caches on subsequent runs
         if run_count > 1:
-            _device_type_specs_done.clear()
-            _cleanup_serials_by_site.clear()
-            _assigned_static_ips.clear()
-            _unifi_dhcp_ranges.clear()
-            _unifi_network_info.clear()
-            _exhausted_static_prefixes.clear()
-            with _static_prefix_locks_lock:
-                _static_prefix_locks.clear()
+            _clear_run_state()
 
         logger.info(f"=== Sync run #{run_count} starting ===")
 
-        # Process all UniFi controllers in parallel
-        process_all_controllers(unifi_url_list, unifi_username, unifi_password, unifi_mfa_secret,
-                                unifi_api_key, unifi_api_key_header, nb, nb_ubiquity,
-                                tenant, netbox_sites_dict, config)
+        process_all_controllers(
+            context["unifi_url_list"],
+            context["unifi_username"],
+            context["unifi_password"],
+            context["unifi_mfa_secret"],
+            context["unifi_api_key"],
+            context["unifi_api_key_header"],
+            context["nb"],
+            context["nb_ubiquity"],
+            context["tenant"],
+            context["netbox_sites_dict"],
+            context["config"],
+        )
 
-        # Run cleanup after sync
-        run_netbox_cleanup(nb, nb_ubiquity, tenant, netbox_sites_dict, _cleanup_serials_by_site)
+        run_netbox_cleanup(
+            context["nb"],
+            context["nb_ubiquity"],
+            context["tenant"],
+            context["netbox_sites_dict"],
+            _cleanup_serials_by_site,
+        )
 
         logger.info(f"=== Sync run #{run_count} complete ===")
 
-        if sync_interval <= 0:
+        if interval <= 0:
             break
-        logger.info(f"Sleeping {sync_interval} seconds until next sync...")
-        _time.sleep(sync_interval)
+        logger.info(f"Sleeping {interval} seconds until next sync...")
+        _time.sleep(interval)
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Sync UniFi devices to NetBox")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose (debug) logging")
+    args = parser.parse_args()
+
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    setup_logging(log_level)
+
+    if args.verbose:
+        logger.debug("Verbose logging enabled")
+    run_sync_loop()
