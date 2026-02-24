@@ -6,7 +6,6 @@ from typing import Any
 import requests
 
 from main import run_sync_once
-from unifi.unifi import Unifi
 
 from ..configuration import (
     get_plugin_settings,
@@ -16,6 +15,7 @@ from ..configuration import (
     sanitize_plugin_settings,
     validate_plugin_settings,
 )
+from .auth import UnifiAuthSettings
 from .mapping import format_result_summary
 
 logger = logging.getLogger("netbox.plugins.netbox_unifi2netbox.sync")
@@ -67,11 +67,8 @@ def _preflight_netbox(plugin_settings: dict[str, Any]) -> dict[str, Any]:
 
 def _preflight_unifi(plugin_settings: dict[str, Any]) -> list[dict[str, Any]]:
     urls = _as_list(resolve_secret_value(plugin_settings.get("unifi_urls") or []))
-    username = str(resolve_secret_value(plugin_settings.get("unifi_username") or ""))
-    password = str(resolve_secret_value(plugin_settings.get("unifi_password") or ""))
-    mfa_secret = str(resolve_secret_value(plugin_settings.get("unifi_mfa_secret") or ""))
-    api_key = str(resolve_secret_value(plugin_settings.get("unifi_api_key") or ""))
-    api_key_header = str(resolve_secret_value(plugin_settings.get("unifi_api_key_header") or ""))
+    auth = UnifiAuthSettings.from_plugin_settings(plugin_settings)
+    auth.validate()
 
     checks: list[dict[str, Any]] = []
     for raw_url in urls:
@@ -80,19 +77,13 @@ def _preflight_unifi(plugin_settings: dict[str, Any]) -> list[dict[str, Any]]:
             continue
 
         try:
-            controller = Unifi(
-                base_url=url,
-                username=username or None,
-                password=password or None,
-                mfa_secret=mfa_secret or None,
-                api_key=api_key or None,
-                api_key_header=api_key_header or None,
-            )
+            controller = auth.build_client(base_url=url)
             sites = getattr(controller, "sites", [])
             checks.append(
                 {
                     "url": url,
                     "status": "ok",
+                    "auth_mode": auth.auth_mode,
                     "api_style": getattr(controller, "api_style", "unknown"),
                     "sites": len(sites),
                 }

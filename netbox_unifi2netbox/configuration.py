@@ -15,20 +15,30 @@ except Exception:  # pragma: no cover
         pass
 
 
-PLUGIN_NAME = "netbox_unifi2netbox"
+PRIMARY_PLUGIN_NAME = "unifi2netbox"
+LEGACY_PLUGIN_NAME = "netbox_unifi2netbox"
+PLUGIN_NAMES = (PRIMARY_PLUGIN_NAME, LEGACY_PLUGIN_NAME)
 _SECRET_FIELDS = {
+    "api_key",
+    "password",
     "unifi_api_key",
     "unifi_password",
     "netbox_token",
 }
 
 DEFAULT_SETTINGS: dict[str, Any] = {
+    "auth_mode": "api_key",
+    "unifi_url": "",
     "unifi_urls": [],
+    "api_key": "",
     "unifi_api_key": "",
     "unifi_api_key_header": "X-API-KEY",
+    "username": "",
     "unifi_username": "",
+    "password": "",
     "unifi_password": "",
     "unifi_mfa_secret": "",
+    "verify_ssl": True,
     "unifi_verify_ssl": True,
     "unifi_persist_session": True,
     "netbox_url": "",
@@ -40,6 +50,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "netbox_vrf_mode": "existing",
     "netbox_default_vrf": "",
     "netbox_roles": {},
+    "default_site": "",
     "default_site_name": "",
     "unifi_use_site_mapping": False,
     "unifi_site_mappings": {},
@@ -52,6 +63,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "sync_stale_cleanup": True,
     "netbox_cleanup": False,
     "cleanup_stale_days": 30,
+    "dry_run": False,
     "dry_run_default": False,
     "dhcp_auto_discover": True,
     "dhcp_ranges": [],
@@ -76,11 +88,6 @@ DEFAULT_SETTINGS: dict[str, Any] = {
 }
 
 _ENV_MAP: dict[str, str] = {
-    "unifi_api_key": "UNIFI_API_KEY",
-    "unifi_api_key_header": "UNIFI_API_KEY_HEADER",
-    "unifi_username": "UNIFI_USERNAME",
-    "unifi_password": "UNIFI_PASSWORD",
-    "unifi_mfa_secret": "UNIFI_MFA_SECRET",
     "unifi_verify_ssl": "UNIFI_VERIFY_SSL",
     "unifi_persist_session": "UNIFI_PERSIST_SESSION",
     "netbox_url": "NETBOX_URL",
@@ -152,6 +159,19 @@ def _as_bool_text(value: Any) -> str:
     return "true" if bool(value) else "false"
 
 
+def _as_bool(value: Any, *, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "on"}:
+        return True
+    if text in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
 def _as_list(value: Any) -> list[str]:
     if value is None:
         return []
@@ -184,19 +204,106 @@ def _as_mapping(value: Any) -> dict[str, str]:
     return {}
 
 
+def _normalize_auth_mode(raw_mode: Any, *, api_key: str, username: str, password: str) -> str:
+    mode = str(raw_mode or "").strip().lower()
+    if mode:
+        return mode
+    if api_key:
+        return "api_key"
+    if username and password:
+        return "login"
+    return "api_key"
+
+
+def _normalize_plugin_settings(settings: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(settings)
+
+    unifi_urls = _as_list(resolve_secret_value(normalized.get("unifi_urls")))
+    if not unifi_urls:
+        unifi_urls = _as_list(resolve_secret_value(normalized.get("unifi_url")))
+    normalized["unifi_urls"] = unifi_urls
+    normalized["unifi_url"] = unifi_urls[0] if unifi_urls else ""
+
+    api_key = str(
+        resolve_secret_value(
+            normalized.get("unifi_api_key")
+            or normalized.get("api_key")
+            or ""
+        )
+    ).strip()
+    username = str(
+        resolve_secret_value(
+            normalized.get("unifi_username")
+            or normalized.get("username")
+            or ""
+        )
+    ).strip()
+    password = str(
+        resolve_secret_value(
+            normalized.get("unifi_password")
+            or normalized.get("password")
+            or ""
+        )
+    ).strip()
+
+    normalized["unifi_api_key"] = api_key
+    normalized["api_key"] = api_key
+    normalized["unifi_username"] = username
+    normalized["username"] = username
+    normalized["unifi_password"] = password
+    normalized["password"] = password
+
+    verify_ssl = _as_bool(
+        normalized.get("unifi_verify_ssl", normalized.get("verify_ssl", True)),
+        default=True,
+    )
+    normalized["unifi_verify_ssl"] = verify_ssl
+    normalized["verify_ssl"] = verify_ssl
+
+    default_site = str(
+        resolve_secret_value(
+            normalized.get("default_site_name")
+            or normalized.get("default_site")
+            or ""
+        )
+    ).strip()
+    normalized["default_site_name"] = default_site
+    normalized["default_site"] = default_site
+
+    dry_run_default = _as_bool(
+        normalized.get("dry_run_default", normalized.get("dry_run", False)),
+        default=False,
+    )
+    normalized["dry_run_default"] = dry_run_default
+    normalized["dry_run"] = dry_run_default
+
+    normalized["auth_mode"] = _normalize_auth_mode(
+        normalized.get("auth_mode"),
+        api_key=api_key,
+        username=username,
+        password=password,
+    )
+    return normalized
+
+
 def get_plugin_settings(overrides: dict[str, Any] | None = None) -> dict[str, Any]:
-    configured = _plugins_config().get(PLUGIN_NAME, {})
     merged = dict(DEFAULT_SETTINGS)
-    if isinstance(configured, dict):
-        merged.update(configured)
+    loaded_plugins = _plugins_config()
+    legacy = loaded_plugins.get(LEGACY_PLUGIN_NAME, {})
+    primary = loaded_plugins.get(PRIMARY_PLUGIN_NAME, {})
+    if isinstance(legacy, dict):
+        merged.update(legacy)
+    if isinstance(primary, dict):
+        merged.update(primary)
     if isinstance(overrides, dict):
         merged.update(overrides)
-    return merged
+    return _normalize_plugin_settings(merged)
 
 
 def sanitize_plugin_settings(plugin_settings: dict[str, Any]) -> dict[str, Any]:
+    normalized = _normalize_plugin_settings(plugin_settings)
     sanitized = {}
-    for key, value in plugin_settings.items():
+    for key, value in normalized.items():
         if key in _SECRET_FIELDS:
             resolved = resolve_secret_value(value)
             sanitized[key] = "***" if str(resolved).strip() else ""
@@ -211,6 +318,7 @@ def sanitize_plugin_settings(plugin_settings: dict[str, Any]) -> dict[str, Any]:
 
 
 def plugin_settings_to_env(plugin_settings: dict[str, Any]) -> dict[str, str]:
+    plugin_settings = _normalize_plugin_settings(plugin_settings)
     env_values: dict[str, str] = {}
 
     urls = _as_list(resolve_secret_value(plugin_settings.get("unifi_urls")))
@@ -244,6 +352,9 @@ def plugin_settings_to_env(plugin_settings: dict[str, Any]) -> dict[str, str]:
     if tenant_fallback:
         env_values["NETBOX_TENANT"] = tenant_fallback
 
+    auth_mode = str(plugin_settings.get("auth_mode") or "api_key").strip().lower()
+    env_values["UNIFI_AUTH_MODE"] = auth_mode
+
     for key, env_name in _ENV_MAP.items():
         value = resolve_secret_value(plugin_settings.get(key))
         if value is None:
@@ -254,6 +365,24 @@ def plugin_settings_to_env(plugin_settings: dict[str, Any]) -> dict[str, str]:
         text = str(value).strip()
         if text:
             env_values[env_name] = text
+
+    if auth_mode == "api_key":
+        api_key = str(resolve_secret_value(plugin_settings.get("unifi_api_key") or "")).strip()
+        if api_key:
+            env_values["UNIFI_API_KEY"] = api_key
+        api_key_header = str(resolve_secret_value(plugin_settings.get("unifi_api_key_header") or "")).strip()
+        if api_key_header:
+            env_values["UNIFI_API_KEY_HEADER"] = api_key_header
+    elif auth_mode == "login":
+        username = str(resolve_secret_value(plugin_settings.get("unifi_username") or "")).strip()
+        password = str(resolve_secret_value(plugin_settings.get("unifi_password") or "")).strip()
+        mfa_secret = str(resolve_secret_value(plugin_settings.get("unifi_mfa_secret") or "")).strip()
+        if username:
+            env_values["UNIFI_USERNAME"] = username
+        if password:
+            env_values["UNIFI_PASSWORD"] = password
+        if mfa_secret:
+            env_values["UNIFI_MFA_SECRET"] = mfa_secret
 
     # Jobs always execute single-cycle runs; scheduling belongs to NetBox job scheduler.
     env_values["SYNC_INTERVAL"] = "0"
@@ -275,17 +404,28 @@ def plugin_settings_to_env(plugin_settings: dict[str, Any]) -> dict[str, str]:
 
 
 def validate_plugin_settings(plugin_settings: dict[str, Any]) -> list[str]:
+    plugin_settings = _normalize_plugin_settings(plugin_settings)
     errors: list[str] = []
 
     urls = _as_list(resolve_secret_value(plugin_settings.get("unifi_urls")))
     if not urls:
-        errors.append("Missing plugin setting 'unifi_urls'.")
+        errors.append("Missing plugin setting 'unifi_url' (or 'unifi_urls').")
 
+    auth_mode = str(plugin_settings.get("auth_mode") or "").strip().lower()
     api_key = str(resolve_secret_value(plugin_settings.get("unifi_api_key") or "")).strip()
     username = str(resolve_secret_value(plugin_settings.get("unifi_username") or "")).strip()
     password = str(resolve_secret_value(plugin_settings.get("unifi_password") or "")).strip()
-    if not api_key and not (username and password):
-        errors.append("Configure either 'unifi_api_key' or both 'unifi_username' and 'unifi_password'.")
+    if auth_mode not in {"api_key", "login"}:
+        errors.append("Invalid 'auth_mode'. Supported values: api_key, login.")
+    elif auth_mode == "api_key":
+        if not api_key:
+            errors.append("auth_mode=api_key requires plugin setting 'api_key' (or 'unifi_api_key').")
+    elif auth_mode == "login":
+        if not username or not password:
+            errors.append(
+                "auth_mode=login requires plugin settings 'username'+'password' "
+                "(or 'unifi_username'+'unifi_password')."
+            )
 
     if not str(resolve_secret_value(plugin_settings.get("netbox_url") or "")).strip():
         errors.append("Missing plugin setting 'netbox_url'.")
@@ -310,7 +450,7 @@ def validate_plugin_settings(plugin_settings: dict[str, Any]) -> list[str]:
 
 
 def get_sync_interval_minutes(plugin_settings: dict[str, Any] | None = None) -> int:
-    settings_data = plugin_settings or get_plugin_settings()
+    settings_data = _normalize_plugin_settings(plugin_settings or get_plugin_settings())
     raw_value = settings_data.get("sync_interval_minutes", 0)
     try:
         interval = int(raw_value)
