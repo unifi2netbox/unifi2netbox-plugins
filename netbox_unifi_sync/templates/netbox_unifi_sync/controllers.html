@@ -1,0 +1,43 @@
+{% extends 'base/layout.html' %}
+
+{% block title %}UniFi Controllers{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <strong>Controllers</strong>
+    <a href="{% url 'plugins:netbox_unifi_sync:controller_add' %}" class="btn btn-sm btn-primary">Add controller</a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr><th>Name</th><th>URL</th><th>Auth</th><th>Enabled</th><th>Last test</th><th></th></tr>
+      </thead>
+      <tbody>
+      {% for c in controllers %}
+        <tr>
+          <td>{{ c.name }}</td>
+          <td>{{ c.base_url }}</td>
+          <td>{{ c.get_auth_mode_display }}</td>
+          <td>{{ c.enabled }}</td>
+          <td>
+            {% if c.last_test_status %}
+              {{ c.last_test_status }}{% if c.last_tested %} ({{ c.last_tested }}){% endif %}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <a href="{% url 'plugins:netbox_unifi_sync:controller_test' c.pk %}" class="btn btn-sm btn-outline-secondary">Test</a>
+            <a href="{% url 'plugins:netbox_unifi_sync:controller_edit' c.pk %}" class="btn btn-sm btn-outline-primary">Edit</a>
+            <a href="{% url 'plugins:netbox_unifi_sync:controller_delete' c.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-muted">No controllers configured.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

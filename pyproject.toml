@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "netbox-unifi2netbox"
-version = "0.2.0"
-description = "NetBox plugin for synchronizing UniFi inventory into NetBox"
+name = "netbox-unifi-sync"
+version = "0.1.0"
+description = "Production-ready NetBox plugin for UniFi synchronization"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
@@ -27,5 +27,5 @@ py-modules = ["main"]
 
 [tool.setuptools.packages.find]
 namespaces = false
-include = ["netbox_unifi2netbox*", "unifi2netbox", "sync", "unifi"]
+include = ["netbox_unifi_sync*", "netbox_unifi2netbox*", "unifi2netbox", "sync", "unifi"]
 exclude = ["tests*", "docs*", "lxc*", "tools*", "deploy*"]

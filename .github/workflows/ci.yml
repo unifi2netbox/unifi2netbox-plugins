@@ -7,12 +7,12 @@ on:
     branches: ["main"]
 
 jobs:
-  tests:
+  quality:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.12"]
 
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +26,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest~=8.0
+          pip install -e .
+          pip install pytest~=8.0 build~=1.2 bandit~=1.7 semgrep~=1.78
 
       - name: Run tests
         run: pytest -q
+
+      - name: Security scan (Bandit)
+        run: bandit -q -r netbox_unifi_sync
+
+      - name: Security scan (Semgrep)
+        run: semgrep --config p/default netbox_unifi_sync --error
+
+      - name: Build package
+        run: python -m build

@@ -1,0 +1,17 @@
+{% extends 'base/layout.html' %}
+
+{% block title %}{% if controller %}Edit{% else %}Add{% endif %} Controller{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header"><strong>{% if controller %}Edit{% else %}Add{% endif %} Controller</strong></div>
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit" class="btn btn-primary">Save</button>
+      <a href="{% url 'plugins:netbox_unifi_sync:controllers' %}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

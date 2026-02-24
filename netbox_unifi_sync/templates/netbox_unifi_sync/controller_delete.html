@@ -1,0 +1,17 @@
+{% extends 'base/layout.html' %}
+
+{% block title %}Delete Controller{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header"><strong>Delete Controller</strong></div>
+  <div class="card-body">
+    <p>Delete controller <strong>{{ controller.name }}</strong>?</p>
+    <form method="post">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger">Delete</button>
+      <a href="{% url 'plugins:netbox_unifi_sync:controllers' %}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

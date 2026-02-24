@@ -3,3 +3,6 @@ recursive-include netbox_unifi2netbox/data *.json
 recursive-include netbox_unifi2netbox/templates *.html
 recursive-include netbox_unifi2netbox/migrations *.py
 recursive-include netbox_unifi2netbox/management *.py
+recursive-include netbox_unifi_sync/templates *.html
+recursive-include netbox_unifi_sync/migrations *.py
+recursive-include netbox_unifi_sync/management *.py

@@ -1,0 +1,25 @@
+{% extends 'base/layout.html' %}
+
+{% block title %}Sync Run #{{ run.pk }}{% endblock %}
+
+{% block content %}
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <strong>Sync Run #{{ run.pk }}</strong>
+    <a href="{% url 'plugins:netbox_unifi_sync:runs' %}" class="btn btn-sm btn-outline-primary">Back</a>
+  </div>
+  <div class="card-body">
+    <dl class="row">
+      <dt class="col-3">Status</dt><dd class="col-9">{{ run.get_status_display }}</dd>
+      <dt class="col-3">Created</dt><dd class="col-9">{{ run.created }}</dd>
+      <dt class="col-3">Started</dt><dd class="col-9">{{ run.started|default:'-' }}</dd>
+      <dt class="col-3">Completed</dt><dd class="col-9">{{ run.completed|default:'-' }}</dd>
+      <dt class="col-3">Duration</dt><dd class="col-9">{{ run.duration_ms }} ms</dd>
+      <dt class="col-3">Mode</dt><dd class="col-9">{% if run.dry_run %}Dry run{% else %}Sync{% endif %}{% if run.cleanup_requested %} + cleanup{% endif %}</dd>
+      <dt class="col-3">Summary</dt><dd class="col-9">{{ run.summary|default:'-' }}</dd>
+      <dt class="col-3">Error</dt><dd class="col-9"><pre>{{ run.error|default:'-' }}</pre></dd>
+      <dt class="col-3">Details</dt><dd class="col-9"><pre>{{ run.details|pprint }}</pre></dd>
+    </dl>
+  </div>
+</div>
+{% endblock %}

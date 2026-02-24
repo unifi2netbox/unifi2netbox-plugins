@@ -1,0 +1,79 @@
+{% extends 'base/layout.html' %}
+{% load helpers %}
+
+{% block title %}UniFi Sync Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col col-md-8">
+    <div class="card mb-3">
+      <div class="card-header"><strong>Run Sync</strong></div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          {{ form.as_p }}
+          <button type="submit" class="btn btn-primary">Queue job</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Recent Runs</strong>
+        <a href="{% url 'plugins:netbox_unifi_sync:runs' %}" class="btn btn-sm btn-outline-primary">View all</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>ID</th><th>Created</th><th>Status</th><th>Mode</th><th>Controllers</th><th>Sites</th><th>Devices</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for run in recent_runs %}
+            <tr>
+              <td><a href="{% url 'plugins:netbox_unifi_sync:run_detail' run.pk %}">#{{ run.pk }}</a></td>
+              <td>{{ run.created }}</td>
+              <td>{{ run.get_status_display }}</td>
+              <td>{% if run.dry_run %}Dry run{% else %}Sync{% endif %}</td>
+              <td>{{ run.controllers_total }}</td>
+              <td>{{ run.sites_total }}</td>
+              <td>{{ run.devices_total }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7" class="text-muted">No runs yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col col-md-4">
+    <div class="card mb-3">
+      <div class="card-header"><strong>Status</strong></div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-6">Enabled</dt><dd class="col-6">{{ settings.enabled }}</dd>
+          <dt class="col-6">Controllers</dt><dd class="col-6">{{ controller_count }}</dd>
+          <dt class="col-6">Schedule</dt><dd class="col-6">{{ settings.schedule_enabled }}</dd>
+          <dt class="col-6">Interval</dt><dd class="col-6">{{ settings.sync_interval_minutes }} min</dd>
+          <dt class="col-6">Tenant</dt><dd class="col-6">{{ settings.tenant_name }}</dd>
+          <dt class="col-6">VRF mode</dt><dd class="col-6">{{ settings.get_vrf_mode_display }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    {% if latest_run %}
+    <div class="card mb-3">
+      <div class="card-header"><strong>Latest Run</strong></div>
+      <div class="card-body">
+        <p class="mb-1"><strong>ID:</strong> <a href="{% url 'plugins:netbox_unifi_sync:run_detail' latest_run.pk %}">#{{ latest_run.pk }}</a></p>
+        <p class="mb-1"><strong>Status:</strong> {{ latest_run.get_status_display }}</p>
+        <p class="mb-1"><strong>Summary:</strong> {{ latest_run.summary|default:'-' }}</p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

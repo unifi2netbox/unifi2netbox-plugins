@@ -1,0 +1,17 @@
+{% extends 'base/layout.html' %}
+
+{% block title %}Delete Site Mapping{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header"><strong>Delete Site Mapping</strong></div>
+  <div class="card-body">
+    <p>Delete mapping <strong>{{ mapping.unifi_site }}</strong> -> <strong>{{ mapping.netbox_site }}</strong>?</p>
+    <form method="post">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger">Delete</button>
+      <a href="{% url 'plugins:netbox_unifi_sync:mappings' %}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}
