@@ -17,6 +17,7 @@ from sync import ipam as ipam_helpers
 from sync import vrf as vrf_helpers
 from sync.ipam import (
     _get_network_info_for_ip,
+    _fetch_legacy_networkconf,
     extract_dhcp_ranges_from_unifi,
     find_available_static_ip,
     is_ip_in_dhcp_range,
@@ -815,7 +816,17 @@ def sync_site_vlans(nb, site_obj, nb_site, tenant):
                     logger.warning(f"Failed to update VLAN {vlan_id} name: {e}")
 
 
-def sync_site_prefixes(nb, site_obj, nb_site, tenant):
+def _extract_prefix_cidr(net):
+    subnet = net.get("ip_subnet") or net.get("subnet")
+    if not subnet:
+        return None
+    try:
+        return str(ipaddress.ip_network(str(subnet), strict=False))
+    except ValueError:
+        return None
+
+
+def sync_site_prefixes(nb, site_obj, nb_site, tenant, unifi=None):
     """Sync prefixes from UniFi network configs to NetBox."""
     try:
         networks = site_obj.network_conf.all()
@@ -824,20 +835,25 @@ def sync_site_prefixes(nb, site_obj, nb_site, tenant):
         return
 
     if not networks:
-        return
+        networks = []
 
+    # Integration API often omits subnet fields; fallback to legacy endpoint when needed.
+    if not any(_extract_prefix_cidr(net) for net in networks) and unifi is not None:
+        legacy_networks = _fetch_legacy_networkconf(unifi, site_obj) or []
+        if legacy_networks:
+            networks = legacy_networks
+
+    seen_prefixes = set()
     for net in networks:
-        subnet = net.get("ip_subnet") or net.get("subnet")
+        prefix_cidr = _extract_prefix_cidr(net)
         net_name = net.get("name") or net.get("purpose") or "UniFi network"
         enabled = net.get("enabled", True)
-        if not subnet:
+        if not prefix_cidr:
             continue
 
-        try:
-            prefix_cidr = str(ipaddress.ip_network(subnet, strict=False))
-        except ValueError:
-            logger.warning(f"Invalid subnet '{subnet}' in site {nb_site.name}. Skipping prefix sync for this network.")
+        if prefix_cidr in seen_prefixes:
             continue
+        seen_prefixes.add(prefix_cidr)
 
         existing = nb.ipam.prefixes.get(prefix=prefix_cidr, scope_type="dcim.site", scope_id=nb_site.id)
         if not existing:
@@ -2069,7 +2085,7 @@ def process_site(unifi, nb, site_obj, site_display_name, nb_site, nb_ubiquity, t
             # Sync prefixes from UniFi networks
             if os.getenv("SYNC_PREFIXES", "true").strip().lower() in ("true", "1", "yes"):
                 try:
-                    sync_site_prefixes(nb, site_obj, nb_site, tenant)
+                    sync_site_prefixes(nb, site_obj, nb_site, tenant, unifi=unifi)
                 except Exception as e:
                     logger.warning(f"Failed to sync prefixes for site {site_display_name}: {e}")
 
