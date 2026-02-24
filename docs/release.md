@@ -26,14 +26,24 @@ Tag must match version exactly: `vX.Y.Z`.
 
 Configured workflows:
 
-- `auto-tag.yml`:
-  - reads version from `pyproject.toml`
-  - creates/pushes tag `v<version>` if tag does not already exist
 - `release.yml`:
-  - validates tag/version consistency
+  - runs on push of tags matching `v*`
+  - creates GitHub Release
+- `publish-python-package.yml`:
+  - runs on `release: published` (or manual dispatch)
   - builds package (`sdist` + `wheel`)
   - runs `twine check`
   - publishes to PyPI via `PYPI_API_TOKEN`
+
+## Recommended Release Commands
+
+```bash
+git add pyproject.toml netbox_unifi_sync/version.py
+git commit -m "Release vX.Y.Z"
+git push origin main
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin vX.Y.Z
+```
 
 ## Manual Publish (fallback)
 

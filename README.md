@@ -79,6 +79,9 @@ Use secret references, not plaintext:
 1. Bump version in:
    - `pyproject.toml` (`[project].version`)
    - `netbox_unifi_sync/version.py` (`__version__`)
-2. Push to `main` (auto-tag reads version from `pyproject.toml`).
-3. Ensure repository secret `PYPI_API_TOKEN` is set.
-4. Tag workflow triggers release workflow, which builds and publishes to PyPI.
+2. Ensure repository secret `PYPI_API_TOKEN` is set.
+3. Create and push tag `vX.Y.Z`:
+   - `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
+   - `git push origin vX.Y.Z`
+4. `release.yml` creates GitHub Release.
+5. `publish-python-package.yml` publishes package to PyPI when release is published.
