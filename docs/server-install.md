@@ -15,14 +15,14 @@ This guide describes how to install `netbox_unifi_sync` on a real NetBox server.
 ### 1. Clone source
 
 ```bash
-git clone https://github.com/patricklind/unifi2netbox.git
-cd unifi2netbox
+git clone https://github.com/unifi2netbox/unifi2netbox-plugins.git
+cd unifi2netbox-plugins
 ```
 
 ### 2. Install plugin
 
 ```bash
-/opt/netbox/venv/bin/pip install -e /path/to/unifi2netbox
+/opt/netbox/venv/bin/pip install -e /path/to/unifi2netbox-plugins
 ```
 
 ### 3. Configure NetBox
@@ -60,8 +60,8 @@ Then open NetBox UI and verify `Plugins -> UniFi Sync` exists.
 ### 1. Clone repos
 
 ```bash
-git clone https://github.com/patricklind/unifi2netbox.git
-cd unifi2netbox
+git clone https://github.com/unifi2netbox/unifi2netbox-plugins.git
+cd unifi2netbox-plugins
 git clone -b release https://github.com/netbox-community/netbox-docker.git .netbox-docker
 ```
 
@@ -145,7 +145,7 @@ In practice, configure runtime values in plugin UI. `PLUGINS_CONFIG` is not requ
 ## Upgrade workflow
 
 ```bash
-cd /path/to/unifi2netbox
+cd /path/to/unifi2netbox-plugins
 git pull
 /opt/netbox/venv/bin/pip install -e .
 /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py migrate

@@ -23,14 +23,14 @@ PLUGINS = ["netbox_unifi_sync"]
 1. Clone repository:
 
 ```bash
-git clone https://github.com/patricklind/unifi2netbox.git
-cd unifi2netbox
+git clone https://github.com/unifi2netbox/unifi2netbox-plugins.git
+cd unifi2netbox-plugins
 ```
 
 2. Install plugin in NetBox venv:
 
 ```bash
-/opt/netbox/venv/bin/pip install -e /path/to/unifi2netbox
+/opt/netbox/venv/bin/pip install -e /path/to/unifi2netbox-plugins
 ```
 
 3. Enable plugin in NetBox `configuration.py`:

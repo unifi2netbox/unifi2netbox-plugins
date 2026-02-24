@@ -5,8 +5,8 @@ This folder contains a reproducible `netbox-docker` setup for local plugin valid
 ## 1) Clone repositories
 
 ```bash
-git clone https://github.com/patricklind/unifi2netbox.git
-cd unifi2netbox
+git clone https://github.com/unifi2netbox/unifi2netbox-plugins.git
+cd unifi2netbox-plugins
 git clone -b release https://github.com/netbox-community/netbox-docker.git .netbox-docker
 ```
 
@@ -28,7 +28,7 @@ cp deploy/netbox-docker/env.netbox-plugin.example .netbox-docker/.env.plugin
 Edit `.netbox-docker/.env.plugin` and set absolute path:
 
 ```bash
-UNIFI2NETBOX_PLUGIN_PATH=/absolute/path/to/unifi2netbox
+UNIFI2NETBOX_PLUGIN_PATH=/absolute/path/to/unifi2netbox-plugins
 ```
 
 Load vars into `netbox-docker` env:
