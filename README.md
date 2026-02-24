@@ -77,15 +77,15 @@ systemctl start unifi2netbox
 journalctl -u unifi2netbox -f
 ```
 
-### NetBox Plugin installation
+### NetBox Plugin installation (recommended)
 
 Install into your NetBox Python environment:
 
 ```bash
-pip install /path/to/unifi2netbox-plugins
+pip install /path/to/unifi2netbox
 ```
 
-In NetBox `configuration.py`:
+Enable in NetBox `configuration.py`:
 
 ```python
 PLUGINS = ["netbox_unifi2netbox"]
@@ -93,9 +93,9 @@ PLUGINS = ["netbox_unifi2netbox"]
 PLUGINS_CONFIG = {
     "netbox_unifi2netbox": {
         "unifi_urls": ["https://controller.example.com/proxy/network/integration/v1"],
-        "unifi_api_key": "your-unifi-api-key",
+        "unifi_api_key": "env:UNIFI_API_KEY",
         "netbox_url": "https://netbox.example.com",
-        "netbox_token": "your-netbox-api-token",
+        "netbox_token": "env:NETBOX_TOKEN",
         "netbox_import_tenant": "Organization Name",
         "netbox_roles": {
             "WIRELESS": "Wireless AP",
@@ -104,13 +104,23 @@ PLUGINS_CONFIG = {
             "ROUTER": "Router",
             "UNKNOWN": "Network Device",
         },
-        # 0 disables built-in scheduler; set >0 to register a system job interval
         "sync_interval_minutes": 0,
     }
 }
 ```
 
-Then restart NetBox services.
+Then restart NetBox services and run from UI:
+- `Plugins > UniFi Sync Status` (queue button)
+- or NetBox Jobs UI
+
+CLI from NetBox environment:
+
+```bash
+python manage.py unifi2netbox_sync
+python manage.py unifi2netbox_sync --dry-run
+```
+
+Full plugin docs: [`docs/netbox-plugin.md`](docs/netbox-plugin.md)
 
 ## Configuration
 
@@ -213,7 +223,7 @@ pip install pytest~=8.0
 pytest tests/ -v
 ```
 
-Current suite: **109 tests**.
+Current suite: **117 tests** (+1 skipped integration skeleton).
 
 ## Project Layout
 
@@ -228,7 +238,28 @@ Current suite: **109 tests**.
 ├── netbox_unifi2netbox/
 │   ├── __init__.py
 │   ├── configuration.py
+│   ├── forms.py
+│   ├── filtersets.py
 │   ├── jobs.py
+│   ├── management/
+│   │   └── commands/
+│   │       └── unifi2netbox_sync.py
+│   ├── migrations/
+│   │   └── 0001_initial.py
+│   ├── models.py
+│   ├── navigation.py
+│   ├── services/
+│   │   ├── mapping.py
+│   │   └── sync_service.py
+│   ├── tables.py
+│   ├── template_content.py
+│   ├── templates/
+│   │   └── netbox_unifi2netbox/
+│   │       ├── status.html
+│   │       ├── syncrun_detail.html
+│   │       └── syncrun_list.html
+│   ├── urls.py
+│   ├── views.py
 │   └── data/
 │       └── ubiquiti_device_specs.json
 ├── unifi/
@@ -247,6 +278,8 @@ Current suite: **109 tests**.
 ├── docs/
 ├── tests/
 ├── lxc/
+├── pyproject.toml
+├── setup.py
 ├── Dockerfile
 ├── docker-compose.yml
 └── requirements.txt

@@ -1,0 +1,89 @@
+{% extends 'base/layout.html' %}
+{% load static %}
+
+{% block content %}
+<div class="row">
+  <div class="col col-12">
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h3 class="card-title mb-0">UniFi Sync Status</h3>
+        <a class="btn btn-outline-primary btn-sm" href="{% url 'plugins:netbox_unifi2netbox:syncrun_list' %}">View all runs</a>
+      </div>
+      <div class="card-body">
+        {% if latest_run %}
+          <p class="mb-1"><strong>Latest:</strong> #{{ latest_run.pk }} ({{ latest_run.get_status_display }})</p>
+          <p class="mb-1"><strong>Created:</strong> {{ latest_run.created }}</p>
+          <p class="mb-0"><strong>Message:</strong> {{ latest_run.message|default:'-' }}</p>
+        {% else %}
+          <p class="mb-0">No sync runs recorded yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col col-12 col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header"><h4 class="card-title mb-0">Run Sync</h4></div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          {% for field in trigger_form %}
+            <div class="mb-3">
+              <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+              {% if field.errors %}<div class="text-danger small">{{ field.errors|join:', ' }}</div>{% endif %}
+            </div>
+          {% endfor %}
+          <button class="btn btn-primary" type="submit">Queue sync job</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col col-12 col-lg-7">
+    <div class="card mb-3">
+      <div class="card-header"><h4 class="card-title mb-0">Recent Runs</h4></div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Created</th>
+              <th>Status</th>
+              <th>Mode</th>
+              <th>Message</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for run in recent_runs %}
+              <tr>
+                <td><a href="{% url 'plugins:netbox_unifi2netbox:syncrun_detail' run.pk %}">#{{ run.pk }}</a></td>
+                <td>{{ run.created }}</td>
+                <td>{{ run.get_status_display }}</td>
+                <td>{% if run.dry_run %}Dry run{% else %}Sync{% endif %}</td>
+                <td>{{ run.message|default:'-' }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5" class="text-muted">No runs yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col col-12">
+    <div class="card">
+      <div class="card-header"><h4 class="card-title mb-0">Effective Plugin Config (sanitized)</h4></div>
+      <div class="card-body">
+        <pre class="bg-body-tertiary p-3 rounded mb-0" style="max-height: 300px; overflow: auto;">{{ plugin_settings }}</pre>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

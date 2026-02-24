@@ -2,8 +2,8 @@ from setuptools import find_packages, setup
 
 setup(
     name="netbox-unifi2netbox",
-    version="0.1.0",
-    description="NetBox plugin to sync UniFi inventory into NetBox",
+    version="0.2.0",
+    description="NetBox plugin for synchronizing UniFi inventory into NetBox",
     python_requires=">=3.10",
     packages=find_packages(exclude=("tests", "docs", "lxc", "tools")),
     py_modules=["main"],

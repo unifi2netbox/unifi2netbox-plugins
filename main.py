@@ -2467,9 +2467,13 @@ def run_sync_once(config=None, clear_state=False):
         _cleanup_serials_by_site,
     )
     logger.info("=== Sync run complete ===")
+    devices_total = 0
+    with _cleanup_serials_lock:
+        devices_total = sum(len(serials) for serials in _cleanup_serials_by_site.values())
     return {
         "controllers": len(context["unifi_url_list"]),
         "sites": len(context["netbox_sites_dict"]),
+        "devices": devices_total,
     }
 
 

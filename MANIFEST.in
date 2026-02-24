@@ -1,2 +1,5 @@
 include data/ubiquiti_device_specs.json
 recursive-include netbox_unifi2netbox/data *.json
+recursive-include netbox_unifi2netbox/templates *.html
+recursive-include netbox_unifi2netbox/migrations *.py
+recursive-include netbox_unifi2netbox/management *.py

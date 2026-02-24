@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "netbox-unifi2netbox"
+version = "0.2.0"
+description = "NetBox plugin for synchronizing UniFi inventory into NetBox"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name = "Patrick Lind" }
+]
+license = { text = "MIT" }
+dependencies = [
+  "pyotp~=2.9.0",
+  "requests~=2.32.3",
+  "pynetbox~=7.4.1",
+  "PyYAML~=6.0.2",
+  "python-dotenv~=1.0.1",
+  "python-slugify~=8.0.4",
+  "urllib3~=2.6.3"
+]
+
+[tool.setuptools]
+include-package-data = true
+py-modules = ["main"]
+
+[tool.setuptools.packages.find]
+exclude = ["tests", "docs", "lxc", "tools"]
