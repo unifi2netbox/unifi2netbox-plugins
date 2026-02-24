@@ -56,6 +56,9 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "unifi_site_mappings": {},
     "tag_strategy": "append",
     "default_tags": [],
+    "asset_tag_enabled": True,
+    "asset_tag_patterns": [],
+    "asset_tag_uppercase": True,
     "sync_interfaces": True,
     "sync_vlans": True,
     "sync_wlans": True,
@@ -120,6 +123,8 @@ _ENV_MAP: dict[str, str] = {
     "unifi_specs_store_max_workers": "UNIFI_SPECS_STORE_MAX_WORKERS",
     "unifi_specs_write_cache": "UNIFI_SPECS_WRITE_CACHE",
     "tag_strategy": "UNIFI_TAG_STRATEGY",
+    "asset_tag_enabled": "UNIFI_ASSET_TAG_ENABLED",
+    "asset_tag_uppercase": "UNIFI_ASSET_TAG_UPPERCASE",
     "default_site_name": "NETBOX_DEFAULT_SITE",
     "rate_limit_per_second": "UNIFI_RATE_LIMIT_PER_SECOND",
 }
@@ -336,6 +341,10 @@ def plugin_settings_to_env(plugin_settings: dict[str, Any]) -> dict[str, str]:
     default_tags = _as_list(resolve_secret_value(plugin_settings.get("default_tags")))
     if default_tags:
         env_values["UNIFI_DEFAULT_TAGS"] = ",".join(default_tags)
+
+    asset_tag_patterns = _as_list(resolve_secret_value(plugin_settings.get("asset_tag_patterns")))
+    if asset_tag_patterns:
+        env_values["UNIFI_ASSET_TAG_PATTERNS"] = json.dumps(asset_tag_patterns)
 
     dhcp_ranges = _as_list(resolve_secret_value(plugin_settings.get("dhcp_ranges")))
     if dhcp_ranges:

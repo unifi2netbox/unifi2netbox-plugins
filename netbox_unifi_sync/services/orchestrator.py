@@ -40,6 +40,7 @@ def get_or_create_global_settings() -> GlobalSyncSettings:
         defaults={
             "tenant_name": "Default",
             "netbox_roles": dict(DEFAULT_ROLES),
+            "asset_tag_patterns": [r"[-_]?(A?ID\d+)$"],
         },
     )
     if not obj.netbox_roles:
@@ -120,6 +121,9 @@ def _build_override(
         "unifi_site_mappings": site_mappings,
         "tag_strategy": settings.tag_strategy,
         "default_tags": settings.default_tags,
+        "asset_tag_enabled": settings.asset_tag_enabled,
+        "asset_tag_patterns": settings.asset_tag_patterns or [r"[-_]?(A?ID\d+)$"],
+        "asset_tag_uppercase": settings.asset_tag_uppercase,
 
         "sync_interfaces": settings.sync_interfaces,
         "sync_vlans": settings.sync_vlans,

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from netbox.plugins import PluginMenuButton, PluginMenuItem
+from netbox.plugins import PluginMenu, PluginMenuButton, PluginMenuItem
 
 
-menu_items = (
+items = (
     PluginMenuItem(
         link="plugins:netbox_unifi_sync:dashboard",
         link_text="Sync Dashboard",
@@ -43,3 +43,14 @@ menu_items = (
         permissions=["netbox_unifi_sync.view_pluginauditevent"],
     ),
 )
+
+menu = PluginMenu(
+    label="UniFi Sync",
+    icon_class="mdi mdi-wifi-sync",
+    groups=(
+        ("Sync", items),
+    ),
+)
+
+# Disable default registration under the generic "Plugins" menu.
+empty_menu_items = ()

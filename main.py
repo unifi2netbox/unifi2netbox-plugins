@@ -117,6 +117,82 @@ def get_postable_fields(base_url, token, url_path):
     logger.debug(f"Retrieved {len(fields)} POST-able fields from NetBox API")
     return fields
 
+
+def _infer_prefix_from_unifi_network_cache(ip_str):
+    """Infer prefix for an IP from discovered UniFi network metadata."""
+    try:
+        addr = ipaddress.ip_address(ip_str)
+    except ValueError:
+        return None
+
+    with _unifi_network_info_lock:
+        for _site_id, info_list in _unifi_network_info.items():
+            for info in info_list:
+                network = info.get("network")
+                if isinstance(network, (ipaddress.IPv4Network, ipaddress.IPv6Network)) and addr in network:
+                    return network
+
+    # Fallback when UniFi network metadata is unavailable
+    if addr.version == 4:
+        return ipaddress.ip_network(f"{ip_str}/24", strict=False)
+    return ipaddress.ip_network(f"{ip_str}/64", strict=False)
+
+
+def ensure_prefix_for_ip(nb, site, tenant, vrf, ip_str):
+    """
+    Ensure a prefix exists for the given IP. Returns a prefix object or None.
+    Prefix is only created if missing.
+    """
+    network = _infer_prefix_from_unifi_network_cache(ip_str)
+    if not network:
+        return None
+
+    prefix_cidr = str(network)
+    lookup = {"prefix": prefix_cidr}
+    if vrf:
+        lookup["vrf_id"] = vrf.id
+
+    existing = nb.ipam.prefixes.get(**lookup)
+    if existing:
+        return existing
+    existing_global = nb.ipam.prefixes.get(prefix=prefix_cidr)
+    if existing_global:
+        return existing_global
+
+    base_payload = {
+        "prefix": prefix_cidr,
+        "status": "active",
+    }
+    if tenant:
+        base_payload["tenant_id"] = tenant.id
+    if vrf:
+        base_payload["vrf_id"] = vrf.id
+
+    payload_with_scope = dict(base_payload)
+    payload_with_scope["scope_type"] = "dcim.site"
+    payload_with_scope["scope_id"] = site.id
+
+    attempts = [payload_with_scope, base_payload]
+    last_error = None
+    for payload in attempts:
+        try:
+            created = nb.ipam.prefixes.create(payload)
+            if created:
+                logger.info(f"Auto-created prefix {prefix_cidr} for site {site.name}")
+                return created
+        except pynetbox.core.query.RequestError as exc:
+            last_error = exc
+            continue
+
+    # If another thread/process created it, reuse that prefix.
+    existing_after = nb.ipam.prefixes.get(prefix=prefix_cidr)
+    if existing_after:
+        return existing_after
+
+    if last_error:
+        logger.warning(f"Failed to auto-create prefix {prefix_cidr}: {last_error}")
+    return None
+
 def load_site_mapping(config=None):
     """
     Load site mapping from runtime config (environment-derived).
@@ -258,13 +334,51 @@ def get_device_name(device: dict) -> str:
         or "unknown-device"
     )
 
+
+def _load_asset_tag_patterns() -> list[re.Pattern]:
+    raw = (os.getenv("UNIFI_ASSET_TAG_PATTERNS") or "").strip()
+    pattern_values: list[str] = []
+    if raw:
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, list):
+                pattern_values = [str(item).strip() for item in parsed if str(item).strip()]
+            else:
+                logger.warning("UNIFI_ASSET_TAG_PATTERNS must be a JSON list. Falling back to default.")
+        except json.JSONDecodeError:
+            pattern_values = [item.strip() for item in raw.split(",") if item.strip()]
+
+    if not pattern_values:
+        return [_ASSET_TAG_RE]
+
+    compiled: list[re.Pattern] = []
+    for idx, pattern in enumerate(pattern_values):
+        try:
+            compiled.append(re.compile(pattern, re.IGNORECASE))
+        except re.error as exc:
+            logger.warning(f"Invalid asset tag regex at index {idx}: {exc}. Ignoring pattern.")
+    return compiled or [_ASSET_TAG_RE]
+
+
 def extract_asset_tag(device_name: str | None) -> str | None:
-    """Extract ID or AID tag from device name, e.g. 'IT-AULA-AP02-ID3006' -> 'ID3006'."""
+    """Extract asset tag from device name using configurable regex patterns."""
     if not device_name:
         return None
-    match = _ASSET_TAG_RE.search(device_name)
-    if match:
-        return match.group(1).upper()
+
+    if not _parse_env_bool(os.getenv("UNIFI_ASSET_TAG_ENABLED"), default=True):
+        return None
+
+    for regex in _load_asset_tag_patterns():
+        match = regex.search(device_name)
+        if not match:
+            continue
+        value = match.group(1) if match.lastindex else match.group(0)
+        value = str(value or "").strip()
+        if not value:
+            continue
+        if _parse_env_bool(os.getenv("UNIFI_ASSET_TAG_UPPERCASE"), default=True):
+            value = value.upper()
+        return value
     return None
 
 
@@ -699,6 +813,62 @@ def sync_site_vlans(nb, site_obj, nb_site, tenant):
                     logger.debug(f"Updated VLAN {vlan_id} name to '{net_name}'")
                 except Exception as e:
                     logger.warning(f"Failed to update VLAN {vlan_id} name: {e}")
+
+
+def sync_site_prefixes(nb, site_obj, nb_site, tenant):
+    """Sync prefixes from UniFi network configs to NetBox."""
+    try:
+        networks = site_obj.network_conf.all()
+    except Exception as e:
+        logger.warning(f"Could not fetch networks for prefix sync at site {nb_site.name}: {e}")
+        return
+
+    if not networks:
+        return
+
+    for net in networks:
+        subnet = net.get("ip_subnet") or net.get("subnet")
+        net_name = net.get("name") or net.get("purpose") or "UniFi network"
+        enabled = net.get("enabled", True)
+        if not subnet:
+            continue
+
+        try:
+            prefix_cidr = str(ipaddress.ip_network(subnet, strict=False))
+        except ValueError:
+            logger.warning(f"Invalid subnet '{subnet}' in site {nb_site.name}. Skipping prefix sync for this network.")
+            continue
+
+        existing = nb.ipam.prefixes.get(prefix=prefix_cidr, scope_type="dcim.site", scope_id=nb_site.id)
+        if not existing:
+            existing = nb.ipam.prefixes.get(prefix=prefix_cidr)
+        if existing:
+            continue
+
+        payload = {
+            "prefix": prefix_cidr,
+            "status": "active" if enabled else "reserved",
+            "tenant_id": tenant.id,
+            "description": f"UniFi: {net_name}",
+        }
+        payload_with_scope = dict(payload)
+        payload_with_scope["scope_type"] = "dcim.site"
+        payload_with_scope["scope_id"] = nb_site.id
+
+        try:
+            created = nb.ipam.prefixes.create(payload_with_scope)
+            if created:
+                logger.info(f"Created prefix {prefix_cidr} at site {nb_site.name}")
+                continue
+        except pynetbox.core.query.RequestError as e:
+            logger.debug(f"Prefix create with scope failed for {prefix_cidr}: {e}")
+
+        try:
+            created = nb.ipam.prefixes.create(payload)
+            if created:
+                logger.info(f"Created prefix {prefix_cidr} (without site scope)")
+        except pynetbox.core.query.RequestError as e:
+            logger.warning(f"Could not create prefix {prefix_cidr}: {e}")
 
 
 def sync_site_wlans(nb, site_obj, nb_site, tenant):
@@ -1506,12 +1676,6 @@ def process_device(unifi, nb, site, device, nb_ubiquity, tenant, unifi_device_ip
         device_ip = get_device_ip(device)
         device_serial = get_device_serial(device)
 
-        # Skip offline/disconnected devices
-        device_state = (device.get("state") or device.get("status") or "").upper()
-        if device_state in ("OFFLINE", "DISCONNECTED", "0"):
-            logger.debug(f"Skipping offline device {device_name}")
-            return
-
         logger.info(f"Processing device {device_name} at site {site}...")
         logger.debug(f"Device details: Model={device_model}, MAC={device_mac}, IP={device_ip}, Serial={device_serial}")
 
@@ -1648,8 +1812,8 @@ def process_device(unifi, nb, site, device, nb_ubiquity, tenant, unifi_device_ip
                                     f'{device_serial}.')
                     return None
 
-                # Device status on create (default: offline)
-                desired_status = (os.getenv("NETBOX_DEVICE_STATUS") or "offline").strip().lower()
+                # Device status on create (default: planned)
+                desired_status = (os.getenv("NETBOX_DEVICE_STATUS") or "planned").strip().lower()
                 if desired_status and "status" in available_fields:
                     device_data["status"] = desired_status
 
@@ -1686,12 +1850,6 @@ def process_device(unifi, nb, site, device, nb_ubiquity, tenant, unifi_device_ip
                     nb_device.tags = current_tags
                     nb_device.save()
                     logger.info(f"Added 'zabbix' tag to device {device_name}.")
-
-            # Sync device state (ONLINE/OFFLINE -> active/offline)
-            try:
-                sync_device_state(nb, nb_device, device)
-            except Exception as e:
-                logger.warning(f"Failed to sync state for {device_name}: {e}")
 
             # Sync custom fields (firmware, uptime, mac)
             try:
@@ -1770,13 +1928,26 @@ def process_device(unifi, nb, site, device, nb_ubiquity, tenant, unifi_device_ip
         # --- End DHCP-to-static ---
 
         # get the prefix that this IP address belongs to
+        vrf_for_ip = vrf
         if vrf:
-            prefixes = nb.ipam.prefixes.filter(contains=device_ip, vrf_id=vrf.id)
+            prefixes = list(nb.ipam.prefixes.filter(contains=device_ip, vrf_id=vrf.id))
+            if not prefixes:
+                prefixes = list(nb.ipam.prefixes.filter(contains=device_ip))
+                if prefixes:
+                    vrf_for_ip = None
         else:
-            prefixes = nb.ipam.prefixes.filter(contains=device_ip)
+            prefixes = list(nb.ipam.prefixes.filter(contains=device_ip))
         if not prefixes:
-            logger.warning(f"No prefix found for IP {device_ip} for device {device_name}. Skipping...")
-            return
+            auto_prefix = ensure_prefix_for_ip(nb, site, tenant, vrf, device_ip)
+            if auto_prefix:
+                prefixes = [auto_prefix]
+                prefix_vrf = getattr(auto_prefix, "vrf", None)
+                prefix_vrf_id = prefix_vrf.get("id") if isinstance(prefix_vrf, dict) else getattr(prefix_vrf, "id", None)
+                if not prefix_vrf_id:
+                    vrf_for_ip = None
+            else:
+                logger.warning(f"No prefix found for IP {device_ip} for device {device_name}. Skipping...")
+                return
         for prefix in prefixes:
             # Extract the prefix length (mask) from the prefix
             subnet_mask = prefix.prefix.split('/')[1]
@@ -1822,10 +1993,12 @@ def process_device(unifi, nb, site, device, nb_ubiquity, tenant, unifi_device_ip
                     logger.exception(
                         f"Failed to create interface vlan.1 for device {device_name} at site {site}: {e}")
                     return
-            ip_get_filters = {"address": ip, "tenant_id": tenant.id}
-            if vrf:
-                ip_get_filters["vrf_id"] = vrf.id
+            ip_get_filters = {"address": ip}
+            if vrf_for_ip:
+                ip_get_filters["vrf_id"] = vrf_for_ip.id
             nb_ip = nb.ipam.ip_addresses.get(**ip_get_filters)
+            if not nb_ip:
+                nb_ip = nb.ipam.ip_addresses.get(address=ip)
             if not nb_ip:
                 try:
                     ip_payload = {
@@ -1835,15 +2008,42 @@ def process_device(unifi, nb, site, device, nb_ubiquity, tenant, unifi_device_ip
                         "tenant_id": tenant.id,
                         "status": "active",
                     }
-                    if vrf:
-                        ip_payload["vrf_id"] = vrf.id
+                    if vrf_for_ip:
+                        ip_payload["vrf_id"] = vrf_for_ip.id
                     nb_ip = nb.ipam.ip_addresses.create(ip_payload)
                     if nb_ip:
                         logger.info(f"IP address {ip} with ID {nb_ip.id} successfully added to NetBox.")
                 except pynetbox.core.query.RequestError as e:
-                    logger.exception(f"Failed to create IP address {ip} for device {device_name} at site {site}: {e}")
-                    return
+                    if "Duplicate IP address found in global table" in str(e):
+                        nb_ip = nb.ipam.ip_addresses.get(address=ip)
+                        if nb_ip:
+                            logger.debug(f"Reusing existing global IP address {ip} for device {device_name}")
+                        else:
+                            logger.exception(f"Failed to resolve duplicate IP address {ip} for device {device_name}: {e}")
+                            return
+                    else:
+                        logger.exception(f"Failed to create IP address {ip} for device {device_name} at site {site}: {e}")
+                        return
             if nb_ip:
+                # Ensure the IP is bound to this device interface before setting primary IP.
+                current_assigned_id = getattr(nb_ip, "assigned_object_id", None)
+                current_assigned_type = getattr(nb_ip, "assigned_object_type", "") or ""
+                if current_assigned_type == "dcim.interface" and current_assigned_id and int(current_assigned_id) != int(interface.id):
+                    logger.warning(
+                        f"IP {ip} is already assigned to interface ID {current_assigned_id}; "
+                        f"skipping primary IP assignment for {device_name}."
+                    )
+                    return
+
+                if int(current_assigned_id or 0) != int(interface.id) or current_assigned_type != "dcim.interface":
+                    try:
+                        nb_ip.assigned_object_type = "dcim.interface"
+                        nb_ip.assigned_object_id = interface.id
+                        nb_ip.save()
+                    except Exception as e:
+                        logger.warning(f"Could not bind IP {ip} to interface {interface.name} for {device_name}: {e}")
+                        return
+
                 nb_device.primary_ip4 = nb_ip.id
                 nb_device.save()
                 logger.info(f"Device {device_name} primary IP set to {ip}.")
@@ -1865,6 +2065,13 @@ def process_site(unifi, nb, site_obj, site_display_name, nb_site, nb_ubiquity, t
                     sync_site_vlans(nb, site_obj, nb_site, tenant)
                 except Exception as e:
                     logger.warning(f"Failed to sync VLANs for site {site_display_name}: {e}")
+
+            # Sync prefixes from UniFi networks
+            if os.getenv("SYNC_PREFIXES", "true").strip().lower() in ("true", "1", "yes"):
+                try:
+                    sync_site_prefixes(nb, site_obj, nb_site, tenant)
+                except Exception as e:
+                    logger.warning(f"Failed to sync prefixes for site {site_display_name}: {e}")
 
             # Sync WiFi SSIDs
             if os.getenv("SYNC_WLANS", "true").strip().lower() in ("true", "1", "yes"):
@@ -1967,7 +2174,8 @@ def process_site(unifi, nb, site_obj, site_display_name, nb_site, nb_ubiquity, t
                 except Exception as e:
                     logger.warning(f"Failed to sync uplink cables for site {site_display_name}: {e}")
 
-            # Mark stale devices (in NetBox but no longer in UniFi) as offline
+            # Detect stale devices (in NetBox but no longer in UniFi).
+            # Status is intentionally left unchanged.
             if os.getenv("SYNC_STALE_CLEANUP", "true").strip().lower() in ("true", "1", "yes"):
                 try:
                     unifi_serials = set()
@@ -1976,13 +2184,14 @@ def process_site(unifi, nb, site_obj, site_display_name, nb_site, nb_ubiquity, t
                         if s:
                             unifi_serials.add(s)
                     nb_devices_at_site = list(nb.dcim.devices.filter(site_id=nb_site.id, tenant_id=tenant.id))
+                    stale_devices = []
                     for nb_dev in nb_devices_at_site:
                         if nb_dev.serial and nb_dev.serial not in unifi_serials:
-                            current_status = nb_dev.status.value if hasattr(nb_dev.status, 'value') else str(nb_dev.status)
-                            if current_status != "offline":
-                                nb_dev.status = "offline"
-                                nb_dev.save()
-                                logger.info(f"Marked stale device '{nb_dev.name}' as offline (not in UniFi)")
+                            stale_devices.append(nb_dev.name)
+                    if stale_devices:
+                        logger.info(
+                            f"Detected {len(stale_devices)} stale device(s) for site {site_display_name}; status not modified."
+                        )
                 except Exception as e:
                     logger.warning(f"Failed to clean up stale devices for site {site_display_name}: {e}")
         else:

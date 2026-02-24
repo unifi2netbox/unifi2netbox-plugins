@@ -37,6 +37,24 @@ PLUGINS_CONFIG = {
 4. Use secret references (`env:VAR_NAME` or `file:/path`) for credentials
 5. Run a `Dry run` from the dashboard
 
+## Asset tag parsing
+
+Asset-tag extraction is configurable in **Settings**:
+
+- `asset_tag_enabled`: enable/disable extraction
+- `asset_tag_patterns_json`: JSON list of regex patterns (first match wins)
+- `asset_tag_uppercase`: normalize extracted value to uppercase
+
+Example patterns:
+
+```json
+[
+  "[-_]?(A?ID\\d+)$",
+  "ASSET[: -]?(\\d+)$",
+  "TAG-([A-Z0-9]+)$"
+]
+```
+
 ## Authentication modes
 
 - `api_key`: uses UniFi Integration API header auth

@@ -21,6 +21,8 @@ class NetBoxUnifiSyncConfig(PluginConfig):
     max_version = "4.99.99"
     default_settings = {}
     required_settings = []
+    menu = "navigation.menu"
+    menu_items = "navigation.empty_menu_items"
 
     def ready(self):
         super().ready()

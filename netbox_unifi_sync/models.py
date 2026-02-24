@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -44,6 +46,13 @@ class GlobalSyncSettings(models.Model):
     default_site = models.CharField(max_length=100, blank=True)
     tag_strategy = models.CharField(max_length=16, choices=TagStrategy.choices, default=TagStrategy.APPEND)
     default_tags = models.JSONField(default=list, blank=True)
+    asset_tag_enabled = models.BooleanField(default=True)
+    asset_tag_patterns = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="JSON list of regex patterns. First match wins. Use capture group for extracted value.",
+    )
+    asset_tag_uppercase = models.BooleanField(default=True)
 
     netbox_roles = models.JSONField(
         default=dict,
@@ -109,6 +118,19 @@ class GlobalSyncSettings(models.Model):
             errors["retry_backoff_max"] = "retry_backoff_max must be >= retry_backoff_base."
         if not isinstance(self.default_tags, list):
             errors["default_tags"] = "default_tags must be a JSON list."
+        if not isinstance(self.asset_tag_patterns, list):
+            errors["asset_tag_patterns"] = "asset_tag_patterns must be a JSON list."
+        else:
+            for idx, pattern in enumerate(self.asset_tag_patterns):
+                text = str(pattern or "").strip()
+                if not text:
+                    errors["asset_tag_patterns"] = f"asset_tag_patterns[{idx}] cannot be empty."
+                    break
+                try:
+                    re.compile(text)
+                except re.error as exc:
+                    errors["asset_tag_patterns"] = f"Invalid regex in asset_tag_patterns[{idx}]: {exc}"
+                    break
         if not isinstance(self.netbox_roles, dict) or not self.netbox_roles:
             errors["netbox_roles"] = "netbox_roles must be a non-empty JSON object."
         if errors:
