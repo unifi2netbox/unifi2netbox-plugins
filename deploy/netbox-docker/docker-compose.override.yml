@@ -4,23 +4,31 @@ services:
     ports:
       - "8000:8080"
     volumes:
-      - ${UNIFI2NETBOX_PLUGIN_PATH:-../unifi2netbox}:/plugins/unifi2netbox:rw
-      - ${UNIFI2NETBOX_PLUGIN_PATH:-../unifi2netbox}:/opt/netbox/netbox/plugins/unifi2netbox:rw
+      - ${UNIFI2NETBOX_PLUGIN_PATH:-/Users/patrick.wulff.lind/Documents/GitHub/unifi2netbox-plugins}:/plugins/unifi2netbox:rw
+      - ${UNIFI2NETBOX_PLUGIN_PATH:-/Users/patrick.wulff.lind/Documents/GitHub/unifi2netbox-plugins}:/opt/netbox/netbox/plugins/unifi2netbox:rw
     entrypoint:
       - /bin/bash
       - -lc
       - |
-        /usr/local/bin/uv pip install --python /opt/netbox/venv/bin/python -e /plugins/unifi2netbox
+        if [ -f /plugins/unifi2netbox/pyproject.toml ] || [ -f /plugins/unifi2netbox/setup.py ]; then
+          /usr/local/bin/uv pip install --python /opt/netbox/venv/bin/python -e /plugins/unifi2netbox
+        else
+          echo "Skipping /plugins/unifi2netbox install (not a Python project)"
+        fi
         exec /usr/bin/tini -- /opt/netbox/docker-entrypoint.sh /opt/netbox/launch-netbox.sh
 
   netbox-worker:
     user: "root"
     volumes:
-      - ${UNIFI2NETBOX_PLUGIN_PATH:-../unifi2netbox}:/plugins/unifi2netbox:rw
-      - ${UNIFI2NETBOX_PLUGIN_PATH:-../unifi2netbox}:/opt/netbox/netbox/plugins/unifi2netbox:rw
+      - ${UNIFI2NETBOX_PLUGIN_PATH:-/Users/patrick.wulff.lind/Documents/GitHub/unifi2netbox-plugins}:/plugins/unifi2netbox:rw
+      - ${UNIFI2NETBOX_PLUGIN_PATH:-/Users/patrick.wulff.lind/Documents/GitHub/unifi2netbox-plugins}:/opt/netbox/netbox/plugins/unifi2netbox:rw
     entrypoint:
       - /bin/bash
       - -lc
       - |
-        /usr/local/bin/uv pip install --python /opt/netbox/venv/bin/python -e /plugins/unifi2netbox
+        if [ -f /plugins/unifi2netbox/pyproject.toml ] || [ -f /plugins/unifi2netbox/setup.py ]; then
+          /usr/local/bin/uv pip install --python /opt/netbox/venv/bin/python -e /plugins/unifi2netbox
+        else
+          echo "Skipping /plugins/unifi2netbox install (not a Python project)"
+        fi
         exec /usr/bin/tini -- /opt/netbox/docker-entrypoint.sh /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py rqworker

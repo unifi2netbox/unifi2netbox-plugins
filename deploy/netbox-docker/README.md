@@ -78,6 +78,7 @@ docker compose exec netbox /opt/netbox/netbox/manage.py netbox_unifi_sync_run --
 ## Notes
 
 - Both `netbox` and `netbox-worker` install plugin via editable mode at container startup.
+- Startup install is guarded: if `UNIFI2NETBOX_PLUGIN_PATH` does not point to a Python project (`pyproject.toml` or `setup.py`), installation is skipped instead of crashing NetBox startup.
 - If plugin code changes, restart both services:
 
 ```bash

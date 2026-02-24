@@ -27,7 +27,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -e .
-          pip install pytest~=8.0 build~=1.2 bandit~=1.7 semgrep~=1.78
+          pip install pytest~=8.0 build~=1.2 twine~=5.1 bandit~=1.7 semgrep~=1.78
 
       - name: Run tests
         run: pytest -q
@@ -39,4 +39,6 @@ jobs:
         run: semgrep --config p/default netbox_unifi_sync --error
 
       - name: Build package
-        run: python -m build
+        run: |
+          python -m build
+          twine check dist/*

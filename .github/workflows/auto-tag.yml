@@ -36,7 +36,7 @@ jobs:
             echo "skip=false" >> "${GITHUB_OUTPUT}"
           fi
 
-      - name: Resolve next tag
+      - name: Resolve release tag from package version
         if: steps.precheck.outputs.skip != 'true'
         id: next
         shell: bash
@@ -44,23 +44,31 @@ jobs:
           set -euo pipefail
           git fetch --tags --force
 
-          LATEST_TAG="$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+(\.[0-9]+)?$' | sort -V | tail -n 1 || true)"
-          if [ -z "${LATEST_TAG}" ]; then
-            NEXT_TAG="v0.1.0"
-          else
-            VERSION="${LATEST_TAG#v}"
-            IFS='.' read -r MAJOR MINOR PATCH <<< "${VERSION}"
-            if [ -z "${PATCH:-}" ]; then
-              PATCH=0
-            fi
-            NEXT_TAG="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+          VERSION="$(python - <<'PY'
+          import tomllib
+          with open("pyproject.toml", "rb") as f:
+              data = tomllib.load(f)
+          print(data["project"]["version"])
+          PY
+          )"
+          NEXT_TAG="v${VERSION}"
+
+          if ! echo "${NEXT_TAG}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([-.][A-Za-z0-9.]+)?$'; then
+            echo "Invalid version format in pyproject.toml: ${VERSION}"
+            exit 1
           fi
 
-          echo "next_tag=${NEXT_TAG}" >> "${GITHUB_OUTPUT}"
-          echo "Next tag: ${NEXT_TAG}"
+          if git tag -l "${NEXT_TAG}" | grep -q "^${NEXT_TAG}$"; then
+            echo "skip=true" >> "${GITHUB_OUTPUT}"
+            echo "Tag ${NEXT_TAG} already exists; skipping."
+          else
+            echo "skip=false" >> "${GITHUB_OUTPUT}"
+            echo "next_tag=${NEXT_TAG}" >> "${GITHUB_OUTPUT}"
+            echo "Next tag: ${NEXT_TAG}"
+          fi
 
       - name: Create and push tag
-        if: steps.precheck.outputs.skip != 'true'
+        if: steps.precheck.outputs.skip != 'true' && steps.next.outputs.skip != 'true'
         shell: bash
         run: |
           set -euo pipefail

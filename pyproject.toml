@@ -6,12 +6,24 @@ build-backend = "setuptools.build_meta"
 name = "netbox-unifi-sync"
 version = "0.1.0"
 description = "Production-ready NetBox plugin for UniFi synchronization"
-readme = "README.md"
+readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.11"
 authors = [
   { name = "Patrick Lind" }
 ]
 license = "MIT"
+keywords = ["netbox", "plugin", "unifi", "dcim", "ipam"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Framework :: Django",
+  "Framework :: Django :: 5.0",
+  "Intended Audience :: System Administrators",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: System :: Networking",
+]
 dependencies = [
   "pyotp~=2.9.0",
   "requests~=2.32.3",
@@ -21,10 +33,20 @@ dependencies = [
   "urllib3~=2.6.3"
 ]
 
+[project.urls]
+Homepage = "https://github.com/unifi2netbox/unifi2netbox-plugins"
+Repository = "https://github.com/unifi2netbox/unifi2netbox-plugins"
+Issues = "https://github.com/unifi2netbox/unifi2netbox-plugins/issues"
+
 [tool.setuptools]
-include-package-data = true
+include-package-data = false
 
 [tool.setuptools.package-data]
+"netbox_unifi_sync" = [
+  "templates/netbox_unifi_sync/*.html",
+  "migrations/*.py",
+  "management/commands/*.py",
+]
 "unifi2netbox.services" = ["data/*.json"]
 
 [tool.setuptools.packages.find]

@@ -18,6 +18,12 @@ Use:
 PLUGINS = ["netbox_unifi_sync"]
 ```
 
+## Install from PyPI
+
+```bash
+pip install netbox-unifi-sync
+```
+
 ## Install on a NetBox server (venv)
 
 1. Clone repository:
@@ -94,3 +100,12 @@ Store credentials as secret references (`env:VAR` or `file:/path`) instead of pl
 - SSL verification defaults to `true`
 - Secrets are redacted in run history and audit events
 - Timeouts/retry/backoff are configurable
+
+## Maintainer release to PyPI
+
+1. Bump version in:
+   - `pyproject.toml` -> `[project].version`
+   - `netbox_unifi_sync/version.py` -> `__version__`
+2. Push to `main`. Auto-tag workflow creates `v<version>` from `pyproject.toml`.
+3. Ensure GitHub secret `PYPI_API_TOKEN` is set in repository settings.
+4. On tag push, `release.yml` builds, validates, and publishes to PyPI.
