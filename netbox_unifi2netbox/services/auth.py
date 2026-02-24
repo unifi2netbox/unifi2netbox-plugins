@@ -58,6 +58,7 @@ class UnifiAuthSettings:
                 base_url=base_url,
                 api_key=self.api_key,
                 api_key_header=self.api_key_header or "X-API-KEY",
+                allow_login_fallback=False,
             )
         logger.debug("Building UniFi client using login auth")
         return Unifi(

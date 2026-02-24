@@ -59,6 +59,7 @@ class Unifi:
         mfa_secret=None,
         api_key=None,
         api_key_header=None,
+        allow_login_fallback=True,
     ):
         logger.debug(f"Initializing UniFi connection to: {base_url}")
         self.base_url = base_url.rstrip("/") if base_url else base_url
@@ -67,6 +68,7 @@ class Unifi:
         self.mfa_secret = mfa_secret
         self.api_key = api_key
         self.api_key_header = api_key_header
+        self.allow_login_fallback = bool(allow_login_fallback)
 
         self.session = requests.Session()
         self.csrf_token = None
@@ -113,6 +115,10 @@ class Unifi:
             )
         else:
             if self.api_key:
+                if not self.allow_login_fallback:
+                    raise ValueError(
+                        "UNIFI_API_KEY provided but Integration API validation failed."
+                    )
                 logger.warning(
                     "UNIFI_API_KEY provided but Integration API could not be validated. "
                     "Falling back to session-based login."

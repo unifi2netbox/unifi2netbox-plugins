@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from dotenv import load_dotenv
 from slugify import slugify
 import os
 import re
@@ -38,8 +37,6 @@ from unifi.model_specs import UNIFI_MODEL_SPECS
 from unifi.spec_refresh import refresh_specs_bundle, write_specs_bundle
 # Suppress only the InsecureRequestWarning
 warnings.simplefilter("ignore", InsecureRequestWarning)
-
-load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Threading limits (configurable via env vars)
@@ -2475,68 +2472,3 @@ def run_sync_once(config=None, clear_state=False):
         "sites": len(context["netbox_sites_dict"]),
         "devices": devices_total,
     }
-
-
-def run_sync_loop(config=None, sync_interval=None):
-    """
-    Run sync once or continuously.
-
-    :param config: Optional runtime configuration dict. If omitted, loaded from env.
-    :param sync_interval: Optional override in seconds. If None, reads SYNC_INTERVAL.
-    """
-    config = config or _load_runtime_or_exit()
-    context = _build_netbox_context(config)
-    interval = _sync_interval_seconds() if sync_interval is None else max(0, int(sync_interval))
-
-    import time as _time
-    run_count = 0
-    while True:
-        run_count += 1
-        if run_count > 1:
-            _clear_run_state()
-
-        logger.info(f"=== Sync run #{run_count} starting ===")
-
-        process_all_controllers(
-            context["unifi_url_list"],
-            context["unifi_username"],
-            context["unifi_password"],
-            context["unifi_mfa_secret"],
-            context["unifi_api_key"],
-            context["unifi_api_key_header"],
-            context["nb"],
-            context["nb_ubiquity"],
-            context["tenant"],
-            context["netbox_sites_dict"],
-            context["config"],
-        )
-
-        run_netbox_cleanup(
-            context["nb"],
-            context["nb_ubiquity"],
-            context["tenant"],
-            context["netbox_sites_dict"],
-            _cleanup_serials_by_site,
-        )
-
-        logger.info(f"=== Sync run #{run_count} complete ===")
-
-        if interval <= 0:
-            break
-        logger.info(f"Sleeping {interval} seconds until next sync...")
-        _time.sleep(interval)
-
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Sync UniFi devices to NetBox")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose (debug) logging")
-    args = parser.parse_args()
-
-    log_level = logging.DEBUG if args.verbose else logging.INFO
-    setup_logging(log_level)
-
-    if args.verbose:
-        logger.debug("Verbose logging enabled")
-    run_sync_loop()

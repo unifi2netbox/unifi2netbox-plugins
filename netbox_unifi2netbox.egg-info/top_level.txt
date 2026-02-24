@@ -1,9 +1,5 @@
-data
-deploy
-logs
 main
 netbox_unifi2netbox
 sync
-tests
 unifi
 unifi2netbox

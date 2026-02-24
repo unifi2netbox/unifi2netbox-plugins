@@ -13,3 +13,7 @@ __pycache__/
 .claude/
 client-privatekey
 client-publickey
+dist/
+build/
+*.egg-info/
+.venv-build/

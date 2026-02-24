@@ -2,6 +2,5 @@ pyotp~=2.9.0
 requests~=2.32.3
 pynetbox~=7.4.1
 PyYAML~=6.0.2
-python-dotenv~=1.0.1
 python-slugify~=8.0.4
 urllib3~=2.6.3

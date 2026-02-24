@@ -3,9 +3,7 @@ MANIFEST.in
 README.md
 main.py
 pyproject.toml
-setup.py
 data/ubiquiti_device_specs.json
-deploy/netbox-docker/configuration/plugins.py
 netbox_unifi2netbox/__init__.py
 netbox_unifi2netbox/configuration.py
 netbox_unifi2netbox/filtersets.py
@@ -20,7 +18,6 @@ netbox_unifi2netbox/views.py
 netbox_unifi2netbox.egg-info/PKG-INFO
 netbox_unifi2netbox.egg-info/SOURCES.txt
 netbox_unifi2netbox.egg-info/dependency_links.txt
-netbox_unifi2netbox.egg-info/not-zip-safe
 netbox_unifi2netbox.egg-info/requires.txt
 netbox_unifi2netbox.egg-info/top_level.txt
 netbox_unifi2netbox/data/ubiquiti_device_specs.json
@@ -56,7 +53,6 @@ tests/test_spec_refresh.py
 tests/test_threading_env.py
 tests/test_unifi_runtime.py
 tests/test_vrf.py
-tests/integration/test_netbox_plugin_smoke.py
 unifi/__init__.py
 unifi/device.py
 unifi/model_specs.py

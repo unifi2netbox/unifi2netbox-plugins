@@ -46,16 +46,14 @@ def _preflight_netbox(plugin_settings: dict[str, Any]) -> dict[str, Any]:
     verify_ssl = bool(plugin_settings.get("netbox_verify_ssl", True))
     timeout = int(plugin_settings.get("unifi_request_timeout", 15) or 15)
 
-    headers = {
-        "Authorization": f"Token {token}",
-        "Accept": "application/json",
-    }
-    response = requests.get(
-        f"{base_url}/api/status/",
-        headers=headers,
-        timeout=timeout,
-        verify=verify_ssl,
-    )
+    status_url = f"{base_url}/api/status/"
+    headers = {"Accept": "application/json"}
+    if token:
+        headers["Authorization"] = f"Token {token}"
+    response = requests.get(status_url, headers=headers, timeout=timeout, verify=verify_ssl)
+    if response.status_code == 403 and "Authorization" in headers:
+        logger.warning("Configured NetBox token was rejected for /api/status; retrying unauthenticated preflight.")
+        response = requests.get(status_url, headers={"Accept": "application/json"}, timeout=timeout, verify=verify_ssl)
     response.raise_for_status()
     payload = response.json() if response.content else {}
     return {

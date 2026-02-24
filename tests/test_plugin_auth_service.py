@@ -55,3 +55,25 @@ def test_build_client_uses_login_fields(monkeypatch):
     assert calls["password"] == "secret"
     assert calls["mfa_secret"] == "mfa"
     assert "api_key" not in calls
+
+
+def test_build_client_disables_fallback_in_api_key_mode(monkeypatch):
+    calls = {}
+
+    class DummyUnifi:
+        def __init__(self, **kwargs):
+            calls.update(kwargs)
+
+    monkeypatch.setattr("netbox_unifi2netbox.services.auth.Unifi", DummyUnifi)
+    settings = UnifiAuthSettings(
+        auth_mode="api_key",
+        api_key="abc123",
+        api_key_header="X-API-KEY",
+        username="admin",
+        password="secret",
+        mfa_secret="",
+    )
+    settings.build_client(base_url="https://unifi.local")
+    assert calls["api_key"] == "abc123"
+    assert calls["allow_login_fallback"] is False
+    assert "username" not in calls
