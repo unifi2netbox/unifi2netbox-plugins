@@ -13,7 +13,7 @@ pip install netbox-unifi-sync
 For development (editable):
 
 ```bash
-pip install -e /path/to/unifi2netbox-plugins
+pip install -e /path/to/netbox_unifi_sync
 ```
 
 ## NetBox configuration

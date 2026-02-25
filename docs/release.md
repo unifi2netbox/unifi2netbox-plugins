@@ -4,6 +4,7 @@ This plugin is published as:
 
 - package name: `netbox-unifi-sync`
 - install command: `pip install netbox-unifi-sync`
+- project URL: <https://pypi.org/project/netbox-unifi-sync/>
 
 ## One-Time Setup
 
@@ -12,7 +13,7 @@ This plugin is published as:
 2. Configure **PyPI Trusted Publisher** (GitHub OIDC) with:
    - **PyPI Project Name**: `netbox-unifi-sync`
    - **Owner**: `unifi2netbox`
-   - **Repository name**: `unifi2netbox-plugins`
+   - **Repository name**: `netbox_unifi_sync`
    - **Workflow name**: `publish-python-package.yml`
    - **Environment name**: `pypi`
 3. In GitHub repository settings, create environment:
@@ -64,7 +65,7 @@ twine check dist/*
 twine upload dist/*
 ```
 
-Use:
+Use (only for fallback without OIDC):
 
 - username: `__token__`
 - password: `<your PyPI API token>`

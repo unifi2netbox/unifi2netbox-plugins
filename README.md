@@ -18,6 +18,8 @@
 pip install netbox-unifi-sync
 ```
 
+PyPI project page: <https://pypi.org/project/netbox-unifi-sync/>
+
 ### 2. Enable plugin in NetBox
 
 ```python

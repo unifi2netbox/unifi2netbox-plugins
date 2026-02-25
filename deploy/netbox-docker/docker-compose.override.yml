@@ -4,8 +4,8 @@ services:
     ports:
       - "8000:8080"
     volumes:
-      - ${UNIFI2NETBOX_PLUGIN_PATH:-/Users/patrick.wulff.lind/Documents/GitHub/unifi2netbox-plugins}:/plugins/unifi2netbox:rw
-      - ${UNIFI2NETBOX_PLUGIN_PATH:-/Users/patrick.wulff.lind/Documents/GitHub/unifi2netbox-plugins}:/opt/netbox/netbox/plugins/unifi2netbox:rw
+      - ${UNIFI2NETBOX_PLUGIN_PATH:-/absolute/path/to/netbox_unifi_sync}:/plugins/unifi2netbox:rw
+      - ${UNIFI2NETBOX_PLUGIN_PATH:-/absolute/path/to/netbox_unifi_sync}:/opt/netbox/netbox/plugins/unifi2netbox:rw
     entrypoint:
       - /bin/bash
       - -lc
@@ -20,8 +20,8 @@ services:
   netbox-worker:
     user: "root"
     volumes:
-      - ${UNIFI2NETBOX_PLUGIN_PATH:-/Users/patrick.wulff.lind/Documents/GitHub/unifi2netbox-plugins}:/plugins/unifi2netbox:rw
-      - ${UNIFI2NETBOX_PLUGIN_PATH:-/Users/patrick.wulff.lind/Documents/GitHub/unifi2netbox-plugins}:/opt/netbox/netbox/plugins/unifi2netbox:rw
+      - ${UNIFI2NETBOX_PLUGIN_PATH:-/absolute/path/to/netbox_unifi_sync}:/plugins/unifi2netbox:rw
+      - ${UNIFI2NETBOX_PLUGIN_PATH:-/absolute/path/to/netbox_unifi_sync}:/opt/netbox/netbox/plugins/unifi2netbox:rw
     entrypoint:
       - /bin/bash
       - -lc

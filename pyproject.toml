@@ -34,9 +34,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/unifi2netbox/unifi2netbox-plugins"
-Repository = "https://github.com/unifi2netbox/unifi2netbox-plugins"
-Issues = "https://github.com/unifi2netbox/unifi2netbox-plugins/issues"
+Homepage = "https://github.com/unifi2netbox/netbox_unifi_sync"
+Repository = "https://github.com/unifi2netbox/netbox_unifi_sync"
+Issues = "https://github.com/unifi2netbox/netbox_unifi_sync/issues"
 
 [tool.setuptools]
 include-package-data = false

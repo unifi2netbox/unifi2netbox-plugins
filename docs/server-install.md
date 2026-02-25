@@ -12,20 +12,23 @@ This guide describes how to install `netbox_unifi_sync` on a real NetBox server.
 
 ## Option A: NetBox in venv (system install)
 
-### 1. Clone source
+### 1. Install from PyPI
 
 ```bash
-git clone https://github.com/unifi2netbox/unifi2netbox-plugins.git
-cd unifi2netbox-plugins
+/opt/netbox/venv/bin/pip install netbox-unifi-sync
 ```
 
-### 2. Install plugin
+PyPI project:
+<https://pypi.org/project/netbox-unifi-sync/>
+
+For local development (editable install from source):
 
 ```bash
-/opt/netbox/venv/bin/pip install -e /path/to/unifi2netbox-plugins
+git clone https://github.com/unifi2netbox/netbox_unifi_sync.git
+/opt/netbox/venv/bin/pip install -e /path/to/netbox_unifi_sync
 ```
 
-### 3. Configure NetBox
+### 2. Configure NetBox
 
 Edit `/opt/netbox/netbox/netbox/configuration.py`:
 
@@ -37,17 +40,17 @@ PLUGINS_CONFIG = {
 }
 ```
 
-### 4. Run migrations
+### 3. Run migrations
 
 ```bash
 /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py migrate
 ```
 
-### 5. Restart NetBox services
+### 4. Restart NetBox services
 
 Restart both web and worker services (exact service names depend on your deployment).
 
-### 6. Verify plugin load
+### 5. Verify plugin load
 
 ```bash
 /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py check
@@ -60,8 +63,8 @@ Then open NetBox UI and verify `Plugins -> UniFi Sync` exists.
 ### 1. Clone repos
 
 ```bash
-git clone https://github.com/unifi2netbox/unifi2netbox-plugins.git
-cd unifi2netbox-plugins
+git clone https://github.com/unifi2netbox/netbox_unifi_sync.git
+cd netbox_unifi_sync
 git clone -b release https://github.com/netbox-community/netbox-docker.git .netbox-docker
 ```
 
@@ -144,8 +147,18 @@ In practice, configure runtime values in plugin UI. `PLUGINS_CONFIG` is not requ
 
 ## Upgrade workflow
 
+From PyPI install:
+
 ```bash
-cd /path/to/unifi2netbox-plugins
+/opt/netbox/venv/bin/pip install --upgrade netbox-unifi-sync
+/opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py migrate
+# restart web + worker
+```
+
+From source checkout:
+
+```bash
+cd /path/to/netbox_unifi_sync
 git pull
 /opt/netbox/venv/bin/pip install -e .
 /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py migrate
