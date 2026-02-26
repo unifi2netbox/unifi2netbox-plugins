@@ -134,7 +134,13 @@ def _build_override(
         "cleanup_stale_days": settings.cleanup_grace_days,
 
         "dhcp_auto_discover": settings.dhcp_auto_discover,
+        "dhcp_ranges": [r.strip() for r in (settings.dhcp_ranges or "").splitlines() if r.strip()],
+        "sync_dhcp_ranges": settings.sync_dhcp_ranges,
         "dhcp_writeback_enabled": settings.dhcp_writeback_enabled,
+        "default_gateway": settings.default_gateway or "",
+        "default_dns": settings.default_dns or "",
+        "netbox_device_status": settings.netbox_device_status or "planned",
+        "sync_prefixes": settings.sync_prefixes,
 
         "max_controller_threads": settings.max_controller_threads,
         "max_site_threads": settings.max_site_threads,

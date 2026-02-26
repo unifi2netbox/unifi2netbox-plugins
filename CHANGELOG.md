@@ -4,6 +4,40 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-02-26
+
+### Added — **Feature parity with standalone unifi2netbox**
+
+Six settings that existed in the standalone CLI tool were missing from the
+plugin UI and DB model.  They have now been added to `GlobalSyncSettings`
+(migration `0005`) and are fully wired through the orchestrator and the
+`plugin_settings_to_env` layer so the sync engine picks them up as env vars.
+
+| New field | Env var | Default | Description |
+|---|---|---|---|
+| `dhcp_ranges` (TextField) | `DHCP_RANGES` | *(empty)* | Manual DHCP CIDR ranges, one per line.  Merged with auto-discovered ranges. |
+| `sync_dhcp_ranges` (BooleanField) | `SYNC_DHCP_RANGES` | `true` | Toggle syncing DHCP IP ranges to NetBox IPAM. |
+| `default_gateway` (GenericIPAddressField) | `DEFAULT_GATEWAY` | *(null)* | Fallback gateway for DHCP→static IP conversion when UniFi lacks gateway config. |
+| `default_dns` (CharField, comma-separated) | `DEFAULT_DNS` | *(empty)* | Fallback DNS server(s) for DHCP→static conversion. |
+| `netbox_device_status` (CharField) | `NETBOX_DEVICE_STATUS` | `planned` | Status assigned to newly created NetBox devices. |
+| `sync_prefixes` (BooleanField) | `SYNC_PREFIXES` | `true` | Sync network prefixes from UniFi to NetBox IPAM. |
+
+### Files changed
+
+| File | Change |
+|---|---|
+| `netbox_unifi_sync/models.py` | Six new fields on `GlobalSyncSettings` |
+| `netbox_unifi_sync/migrations/0005_feature_parity.py` | New migration |
+| `netbox_unifi_sync/services/orchestrator.py` | `_build_override()` passes new fields |
+| `netbox_unifi_sync/configuration.py` | New keys in `DEFAULT_SETTINGS` and `_ENV_MAP` |
+| `netbox_unifi_sync/forms.py` | Widget overrides for `dhcp_ranges` and `netbox_device_status` |
+
+### Migration
+
+Run `python manage.py migrate netbox_unifi_sync` to apply migration `0005`
+which adds the six new columns.  All columns have safe defaults so existing
+rows are migrated automatically without data loss.
+
 ## [0.2.2] - 2026-02-26
 
 ### Fixed — **Device types and devices not created (ORM create regression)**

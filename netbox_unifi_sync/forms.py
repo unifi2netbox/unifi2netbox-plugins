@@ -21,6 +21,16 @@ class JSONTextAreaField(forms.CharField):
             raise forms.ValidationError(f"Invalid JSON: {exc}") from exc
 
 
+_DEVICE_STATUS_CHOICES = [
+    ("planned", "Planned"),
+    ("staged", "Staged"),
+    ("active", "Active"),
+    ("decommissioning", "Decommissioning"),
+    ("inventory", "Inventory"),
+    ("offline", "Offline"),
+]
+
+
 class GlobalSyncSettingsForm(forms.ModelForm):
     default_tags_json = JSONTextAreaField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
     asset_tag_patterns_json = JSONTextAreaField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
@@ -29,6 +39,10 @@ class GlobalSyncSettingsForm(forms.ModelForm):
     class Meta:
         model = GlobalSyncSettings
         exclude = ("singleton_key", "updated", "default_tags", "asset_tag_patterns", "netbox_roles")
+        widgets = {
+            "dhcp_ranges": forms.Textarea(attrs={"rows": 4, "placeholder": "192.168.1.0/24\n10.0.0.0/8"}),
+            "netbox_device_status": forms.Select(choices=_DEVICE_STATUS_CHOICES),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

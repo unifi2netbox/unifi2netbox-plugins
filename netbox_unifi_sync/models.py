@@ -66,7 +66,43 @@ class GlobalSyncSettings(models.Model):
     sync_stale_cleanup = models.BooleanField(default=True)
 
     dhcp_auto_discover = models.BooleanField(default=True)
+    dhcp_ranges = models.TextField(
+        blank=True,
+        default="",
+        help_text="Manual DHCP ranges in CIDR notation, one per line (e.g. 192.168.1.0/24). "
+                  "Merged with auto-discovered ranges.",
+    )
+    sync_dhcp_ranges = models.BooleanField(
+        default=True,
+        help_text="Sync DHCP IP ranges to NetBox IPAM.",
+    )
     dhcp_writeback_enabled = models.BooleanField(default=False)
+
+    default_gateway = models.GenericIPAddressField(
+        protocol="IPv4",
+        blank=True,
+        null=True,
+        help_text="Fallback gateway IP used for DHCP→static conversion when UniFi network config lacks a gateway.",
+    )
+    default_dns = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Fallback DNS servers, comma-separated (e.g. 8.8.8.8,8.8.4.4). "
+                  "Used when UniFi network config lacks DNS information.",
+    )
+
+    netbox_device_status = models.CharField(
+        max_length=32,
+        default="planned",
+        help_text="Status assigned to newly created devices in NetBox "
+                  "(e.g. planned, staged, active, inventory).",
+    )
+    sync_prefixes = models.BooleanField(
+        default=True,
+        help_text="Sync network prefixes from UniFi to NetBox IPAM.",
+    )
+
     cleanup_enabled = models.BooleanField(default=False)
     cleanup_grace_days = models.PositiveIntegerField(default=30)
 
