@@ -12,6 +12,10 @@
 2. Optional bootstrap defaults from `PLUGINS_CONFIG["netbox_unifi_sync"]`
 3. Internal compatibility mapping into legacy engine keys (handled by plugin services)
 
+Credential policy:
+- UniFi credentials are read from `Controllers` UI fields only.
+- `PLUGINS_CONFIG` should not be used to store UniFi credentials.
+
 ## Minimum Required Setup (UI)
 
 Before first sync, set:
@@ -42,11 +46,6 @@ You can also preseed defaults:
 ```python
 PLUGINS_CONFIG = {
     "netbox_unifi_sync": {
-        "unifi_url": "https://unifi.local",
-        "auth_mode": "api_key",  # api_key | login
-        "api_key": "env:UNIFI_API_KEY",
-        "username": "env:UNIFI_USERNAME",
-        "password": "env:UNIFI_PASSWORD",
         "verify_ssl": True,
         "default_site": "",
         "dry_run": False,
@@ -59,13 +58,13 @@ PLUGINS_CONFIG = {
 ### `api_key` (recommended)
 
 - Uses Integration API v1
-- Requires `api_key`/`api_key_ref`
+- Requires `api_key_ref` on the controller row
 - Optional custom header `api_key_header` (default `X-API-KEY`)
 
 ### `login` (legacy fallback)
 
 - Uses username/password session login
-- Requires `username` + `password`
+- Requires `username_ref` + `password_ref` on the controller row
 - Optional `mfa_secret`
 
 Note: local Integration API keys are required for Integration API mode.  
@@ -136,10 +135,10 @@ The plugin maps UI state into these internal engine keys (for compatibility/debu
 | Internal key | Source in plugin UI |
 |---|---|
 | `UNIFI_URLS` | Enabled controller URLs (`base_url`) |
-| `UNIFI_API_KEY` | `api_key_ref` / bootstrap `api_key` |
+| `UNIFI_API_KEY` | `api_key_ref` |
 | `UNIFI_API_KEY_HEADER` | `api_key_header` |
-| `UNIFI_USERNAME` | `username_ref` / bootstrap `username` |
-| `UNIFI_PASSWORD` | `password_ref` / bootstrap `password` |
+| `UNIFI_USERNAME` | `username_ref` |
+| `UNIFI_PASSWORD` | `password_ref` |
 | `UNIFI_MFA_SECRET` | `mfa_secret_ref` |
 | `UNIFI_VERIFY_SSL` | controller `verify_ssl` or global default |
 | `UNIFI_REQUEST_TIMEOUT` | `request_timeout` |
@@ -168,8 +167,6 @@ The plugin maps UI state into these internal engine keys (for compatibility/debu
 These are valid in `PLUGINS_CONFIG["netbox_unifi_sync"]` when you need preseed defaults:
 
 - `unifi_url` or `unifi_urls`
-- `auth_mode`
-- `api_key`, `username`, `password`, `unifi_mfa_secret`
 - `verify_ssl`
 - `default_site`
 - `dry_run`
@@ -181,12 +178,12 @@ These are valid in `PLUGINS_CONFIG["netbox_unifi_sync"]` when you need preseed d
 
 ## Secret Handling
 
-Use secret references instead of plaintext:
+Credentials are set in `Controllers` UI fields (`api_key_ref`, `username_ref`, `password_ref`, `mfa_secret_ref`).
+Supported formats in those controller fields:
 
 - `env:VAR_NAME`
 - `file:/absolute/path/to/secret`
-
-Supported on controller credentials and plugin bootstrap values.
+- direct pasted credential value
 
 ## Advanced Compatibility Notes
 

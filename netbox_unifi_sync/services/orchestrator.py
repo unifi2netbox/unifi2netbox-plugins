@@ -213,9 +213,15 @@ def test_controller_connection(controller: UnifiController, settings: GlobalSync
     )
 
     if runtime.auth_mode == AuthMode.API_KEY and not runtime.api_key:
-        raise SyncConfigurationError(f"Controller {controller.name}: missing api_key_ref")
+        raise SyncConfigurationError(
+            f"Controller {controller.name}: missing API key credential "
+            f"(set api_key_ref in Controllers UI)."
+        )
     if runtime.auth_mode == AuthMode.LOGIN and (not runtime.username or not runtime.password):
-        raise SyncConfigurationError(f"Controller {controller.name}: missing username_ref/password_ref")
+        raise SyncConfigurationError(
+            f"Controller {controller.name}: missing login credentials "
+            f"(set username_ref/password_ref in Controllers UI)."
+        )
 
     client = _build_unifi_client(runtime)
     client.verify_ssl = runtime.verify_ssl

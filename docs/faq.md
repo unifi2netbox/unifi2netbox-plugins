@@ -53,12 +53,14 @@ If `cleanup_enabled` is enabled, stale devices can be deleted after `cleanup_gra
 
 ### Where should I place credentials?
 
-Use credential references:
+Set credentials only in `Plugins -> UniFi Sync -> Controllers`.
+Accepted values in controller credential fields:
 
 - `env:VAR_NAME`
 - `file:/absolute/path/to/secret`
+- direct pasted credential value
 
-Avoid plaintext credentials in UI and git-tracked files.
+Do not store UniFi credentials in `PLUGINS_CONFIG`.
 
 ### Is SSL verification enabled by default?
 

@@ -36,6 +36,14 @@ PLUGINS_CONFIG = {
 }
 ```
 
+Debian note: NetBox 4.5+ requires `API_TOKEN_PEPPERS` in `configuration.py`:
+
+```python
+API_TOKEN_PEPPERS = {
+    1: "replace-with-a-long-random-secret",
+}
+```
+
 ### 3. Apply migrations
 
 ```bash
@@ -62,10 +70,8 @@ python manage.py netbox_unifi_sync_run --cleanup
 
 ## Credentials
 
-Use secret references, not plaintext:
-
-- `env:VAR_NAME`
-- `file:/absolute/path/to/secret`
+Set credentials only in `Plugins -> UniFi Sync -> Controllers`.
+Do not store UniFi credentials in `PLUGINS_CONFIG`.
 
 ## Documentation
 

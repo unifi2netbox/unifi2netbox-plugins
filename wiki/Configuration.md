@@ -16,10 +16,8 @@ Runtime-konfiguration håndteres primært i NetBox UI:
 
 ## Credentials
 
-Brug references i stedet for plaintext:
-
-- `env:VAR_NAME`
-- `file:/absolute/path/to/secret`
+Sæt credentials i `Controllers` UI felterne (`api_key_ref`, `username_ref`, `password_ref`, `mfa_secret_ref`).
+Undgå at lægge credentials i `PLUGINS_CONFIG`.
 
 ## Optional bootstrap in PLUGINS_CONFIG
 

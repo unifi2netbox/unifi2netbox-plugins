@@ -29,6 +29,16 @@ All notable changes to this project are documented in this file.
 ### Removed
 - Raw auto-generated git-log changelog format replaced by structured release notes.
 
+## 2026-02-26
+
+### Changed
+- Bumped release version to `0.1.3`.
+- Clarified credential policy: UniFi API key/login credentials are configured in `Controllers` UI fields.
+- Updated install/config docs and wiki for Debian server flow and plugin bootstrap usage.
+
+### Fixed
+- Improved controller credential guidance in UI help and runtime error messages.
+
 ## 2026-02-25
 
 ### Fixed

@@ -38,6 +38,10 @@ PLUGINS = ["netbox_unifi_sync"]
 PLUGINS_CONFIG = {
     "netbox_unifi_sync": {}
 }
+
+API_TOKEN_PEPPERS = {
+    1: "replace-with-a-long-random-secret",
+}
 ```
 
 ### 3. Run migrations
@@ -142,6 +146,7 @@ There are two layers:
    - Site mappings
 
 In practice, configure runtime values in plugin UI. `PLUGINS_CONFIG` is not required for normal operation.
+UniFi credentials should be stored only in `Controllers` UI entries.
 
 ## Minimum UI setup before first sync
 
@@ -150,7 +155,7 @@ In practice, configure runtime values in plugin UI. `PLUGINS_CONFIG` is not requ
    - `netbox_roles` mapping (required)
 2. `Controllers`:
    - Add at least one enabled controller
-   - Set auth mode and credential references
+   - Set auth mode and credentials in the controller row (`api_key_ref` or `username_ref`/`password_ref`)
 3. `Site mappings`:
    - Add mapping rows where UniFi site name differs from NetBox site name
 
