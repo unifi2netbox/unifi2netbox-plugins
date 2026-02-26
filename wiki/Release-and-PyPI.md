@@ -25,6 +25,9 @@ PyPI publisher must match exactly:
 4. `release.yml` creates GitHub release
 5. `publish-python-package.yml` publishes to PyPI
 
+Note:
+- If publish does not start automatically from the release event, run `Publish Python Package` manually (`workflow_dispatch`).
+
 ## Common failure
 
 If upload says filename already used/deleted, publish a new version (e.g. `0.1.2` -> `0.1.3`).

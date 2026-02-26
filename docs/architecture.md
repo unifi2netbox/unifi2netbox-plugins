@@ -2,14 +2,15 @@
 
 ## Overview
 
-```text
-UniFi Controller(s)
-  -> unifi2netbox/services/unifi/unifi.py (auth + request + retry)
-  -> unifi2netbox/services/unifi/sites.py + resource wrappers
-  -> unifi2netbox/services/sync_engine.py normalization + NetBox mapping
-  -> pynetbox client
-  -> NetBox
-  -> optional cleanup phase
+![Architecture overview](assets/netbox-unifi-sync-overview.svg)
+
+```mermaid
+flowchart LR
+    U["UniFi Controller(s)"] --> C["unifi2netbox/services/unifi/unifi.py<br/>auth + request + retry"]
+    C --> E["unifi2netbox/services/sync_engine.py<br/>normalize + mapping"]
+    E --> N["NetBox API (pynetbox)"]
+    N --> D["NetBox DCIM/IPAM/Wireless"]
+    P["Plugin UI Models<br/>Settings, Controllers, SiteMappings"] --> E
 ```
 
 ## API Compatibility
@@ -71,7 +72,7 @@ Main thread-safe structures in `unifi2netbox/services/sync_engine.py`:
 ## Sync Flow (high-level)
 
 1. Load runtime config from plugin models (`Settings`, `Controllers`, `Site mappings`)
-2. Merge optional bootstrap/default values from `PLUGINS_CONFIG["netbox_unifi_sync"]`
+2. Merge optional non-secret bootstrap defaults from `PLUGINS_CONFIG["netbox_unifi_sync"]`
 3. Resolve NetBox tenant/roles/sites
 4. Process all configured UniFi controllers in parallel
 5. Per site:
@@ -81,8 +82,25 @@ Main thread-safe structures in `unifi2netbox/services/sync_engine.py`:
 6. Optional cleanup (`cleanup_enabled=true`)
 7. Repeat if scheduler is enabled and interval is configured
 
+![Sync run flow](assets/netbox-unifi-sync-runflow.svg)
+
+```mermaid
+flowchart TD
+    T["Trigger (UI or scheduler)"] --> R["Create SyncRun"]
+    R --> L["Load runtime config"]
+    L --> V{"Config valid?"}
+    V -- No --> F["Mark failed + error"]
+    V -- Yes --> D{"dry-run?"}
+    D -- Yes --> P["Preflight checks"]
+    D -- No --> S["Execute sync engine"]
+    P --> O["Store run summary"]
+    S --> O
+    O --> A["Audit + dashboard status"]
+```
+
 ## Runtime Security-Relevant Defaults
 
 - UniFi TLS verification is controlled by `UNIFI_VERIFY_SSL` (default `true`)
 - NetBox TLS verification is controlled by `NETBOX_VERIFY_SSL` (default `true`)
 - UniFi session persistence is controlled by `UNIFI_PERSIST_SESSION` (default `true`)
+- UniFi credentials are sourced from `Controllers` UI fields (`api_key_ref`, `username_ref`, `password_ref`, `mfa_secret_ref`)

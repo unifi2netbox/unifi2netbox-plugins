@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">netbox-unifi-sync overview</title>
+  <desc id="desc">Data flow from UniFi controllers into NetBox via the plugin running in NetBox jobs.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f6f8fa; }
+      .card { fill: #ffffff; stroke: #d0d7de; stroke-width: 2; rx: 12; ry: 12; }
+      .h { font: 700 20px Arial, sans-serif; fill: #1f2328; }
+      .t { font: 15px Arial, sans-serif; fill: #3d444d; }
+      .arrow { stroke: #0969da; stroke-width: 3; marker-end: url(#m); fill: none; }
+    </style>
+    <marker id="m" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#0969da"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1200" height="420"/>
+
+  <rect class="card" x="40" y="100" width="230" height="180"/>
+  <text class="h" x="60" y="140">UniFi Controller</text>
+  <text class="t" x="60" y="170">Integration API v1</text>
+  <text class="t" x="60" y="195">or legacy login</text>
+  <text class="t" x="60" y="235">Sites, devices, VLANs,</text>
+  <text class="t" x="60" y="258">WLANs, DHCP scopes</text>
+
+  <rect class="card" x="330" y="70" width="290" height="240"/>
+  <text class="h" x="350" y="110">netbox_unifi_sync plugin</text>
+  <text class="t" x="350" y="140">Runs inside NetBox worker jobs</text>
+  <text class="t" x="350" y="170">- Controllers UI config</text>
+  <text class="t" x="350" y="193">- Mapping and transforms</text>
+  <text class="t" x="350" y="216">- Idempotent upsert logic</text>
+  <text class="t" x="350" y="239">- Cleanup / dry-run support</text>
+  <text class="t" x="350" y="274">Runtime: Python 3.11+</text>
+
+  <rect class="card" x="680" y="70" width="240" height="240"/>
+  <text class="h" x="700" y="110">NetBox Core</text>
+  <text class="t" x="700" y="145">DCIM</text>
+  <text class="t" x="700" y="170">IPAM</text>
+  <text class="t" x="700" y="195">Wireless</text>
+  <text class="t" x="700" y="220">Background Jobs (RQ)</text>
+  <text class="t" x="700" y="255">Audit + run history</text>
+
+  <rect class="card" x="980" y="100" width="180" height="180"/>
+  <text class="h" x="1000" y="140">Plugin UI</text>
+  <text class="t" x="1000" y="170">Settings</text>
+  <text class="t" x="1000" y="195">Controllers</text>
+  <text class="t" x="1000" y="220">Site mappings</text>
+  <text class="t" x="1000" y="245">Run now / status</text>
+
+  <path class="arrow" d="M270 190 L330 190"/>
+  <path class="arrow" d="M620 190 L680 190"/>
+  <path class="arrow" d="M920 190 L980 190"/>
+</svg>

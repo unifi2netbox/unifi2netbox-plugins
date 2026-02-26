@@ -20,6 +20,17 @@ Production-focused UniFi -> NetBox synchronization as an in-platform NetBox plug
 - [QA Checklist](./qa-checklist.html)
 - [Bug Report](./bug-report.html)
 
+## Visuals
+
+![Overview](./assets/netbox-unifi-sync-overview.svg)
+
+```mermaid
+flowchart LR
+    U["UniFi Controller(s)"] --> J["netbox_unifi_sync Jobs"]
+    J --> N["NetBox"]
+    S["Plugin Settings UI"] --> J
+```
+
 ## Notes
 
 - Primary sync direction is UniFi -> NetBox.

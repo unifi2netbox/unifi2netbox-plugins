@@ -2,6 +2,17 @@
 
 `netbox_unifi_sync` is a NetBox 4.2+ plugin that runs UniFi -> NetBox sync jobs inside NetBox workers.
 
+## Visual Overview
+
+![netbox-unifi-sync overview](docs/assets/netbox-unifi-sync-overview.svg)
+
+```mermaid
+flowchart LR
+    U["UniFi Controller(s)"] --> P["netbox_unifi_sync plugin<br/>NetBox Jobs (RQ)"]
+    P --> N["NetBox DCIM/IPAM/Wireless"]
+    A["Plugin UI<br/>Settings/Controllers/Mappings"] --> P
+```
+
 ## Features
 
 - Device sync (devices, interfaces, VLANs, prefixes, WLANs, uplink relations, IP assignments)

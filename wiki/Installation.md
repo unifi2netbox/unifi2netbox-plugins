@@ -18,6 +18,10 @@ PLUGINS_CONFIG = {
 }
 ```
 
+Credential policy:
+- Configure UniFi credentials only in `Plugins -> UniFi Sync -> Controllers`.
+- Do not store UniFi credentials in `PLUGINS_CONFIG`.
+
 Run migrations:
 
 ```bash

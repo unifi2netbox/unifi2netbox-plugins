@@ -25,8 +25,9 @@ Check:
 
 For `api_key` mode:
 
-- verify `api_key_ref`/`api_key`
+- verify `api_key_ref` in the controller row contains a valid local UniFi Integration API key
 - verify header (`api_key_header`)
+- do not place UniFi credentials in `PLUGINS_CONFIG`
 
 For `login` mode:
 

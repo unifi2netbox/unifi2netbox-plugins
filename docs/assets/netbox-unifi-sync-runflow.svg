@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" role="img" aria-labelledby="title desc">
+  <title id="title">netbox-unifi-sync run flow</title>
+  <desc id="desc">Manual and scheduled sync run path from trigger through validation, sync, and run history output.</desc>
+  <defs>
+    <style>
+      .bg { fill: #ffffff; }
+      .n { fill: #f6f8fa; stroke: #d0d7de; stroke-width: 2; rx: 10; ry: 10; }
+      .h { font: 700 18px Arial, sans-serif; fill: #1f2328; }
+      .t { font: 14px Arial, sans-serif; fill: #3d444d; }
+      .a { stroke: #0969da; stroke-width: 3; marker-end: url(#m); fill: none; }
+    </style>
+    <marker id="m" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#0969da"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1200" height="500"/>
+
+  <rect class="n" x="40" y="60" width="220" height="90"/>
+  <text class="h" x="60" y="95">Trigger</text>
+  <text class="t" x="60" y="122">UI Run now or scheduler</text>
+
+  <rect class="n" x="320" y="60" width="230" height="90"/>
+  <text class="h" x="340" y="95">Create SyncRun</text>
+  <text class="t" x="340" y="122">status=pending/running</text>
+
+  <rect class="n" x="610" y="60" width="250" height="90"/>
+  <text class="h" x="630" y="95">Load runtime config</text>
+  <text class="t" x="630" y="122">Settings + Controllers + Mappings</text>
+
+  <rect class="n" x="920" y="60" width="230" height="90"/>
+  <text class="h" x="940" y="95">Validate auth/config</text>
+  <text class="t" x="940" y="122">Fail fast with clear errors</text>
+
+  <rect class="n" x="320" y="220" width="250" height="90"/>
+  <text class="h" x="340" y="255">Dry-run preflight</text>
+  <text class="t" x="340" y="282">Connectivity + permissions check</text>
+
+  <rect class="n" x="640" y="220" width="250" height="90"/>
+  <text class="h" x="660" y="255">Execute sync engine</text>
+  <text class="t" x="660" y="282">Idempotent create/update</text>
+
+  <rect class="n" x="320" y="370" width="250" height="90"/>
+  <text class="h" x="340" y="405">Update run result</text>
+  <text class="t" x="340" y="432">success/failed + counters</text>
+
+  <rect class="n" x="640" y="370" width="250" height="90"/>
+  <text class="h" x="660" y="405">Audit + UI status</text>
+  <text class="t" x="660" y="432">Runs page + dashboard</text>
+
+  <path class="a" d="M260 105 L320 105"/>
+  <path class="a" d="M550 105 L610 105"/>
+  <path class="a" d="M860 105 L920 105"/>
+  <path class="a" d="M1035 150 L1035 220 L890 220"/>
+  <path class="a" d="M1035 150 L1035 220 L570 220"/>
+  <path class="a" d="M445 310 L445 370"/>
+  <path class="a" d="M765 310 L765 370"/>
+  <path class="a" d="M570 415 L640 415"/>
+</svg>

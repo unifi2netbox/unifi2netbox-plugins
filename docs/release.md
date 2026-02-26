@@ -28,6 +28,7 @@ Keep versions aligned in both files:
 
 - `pyproject.toml` -> `[project].version`
 - `netbox_unifi_sync/version.py` -> `__version__`
+- `netbox-plugin.yaml` -> `compatibility[].release`
 
 Tag must match version exactly: `vX.Y.Z`.
 
@@ -49,12 +50,14 @@ Configured workflows:
 ## Recommended Release Commands
 
 ```bash
-git add pyproject.toml netbox_unifi_sync/version.py
+git add pyproject.toml netbox_unifi_sync/version.py netbox-plugin.yaml CHANGELOG.md
 git commit -m "Release vX.Y.Z"
 git push origin main
 git tag -a vX.Y.Z -m "Release vX.Y.Z"
 git push origin vX.Y.Z
 ```
+
+If `Publish Python Package` does not auto-start after tag/release creation, run it manually from GitHub Actions (`workflow_dispatch`).
 
 ## Manual Publish (fallback)
 

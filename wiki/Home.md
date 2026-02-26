@@ -2,6 +2,17 @@
 
 `netbox-unifi-sync` er et NetBox plugin til UniFi -> NetBox sync.
 
+## Diagrammer
+
+![Overview](https://raw.githubusercontent.com/unifi2netbox/netbox-unifi-sync/main/docs/assets/netbox-unifi-sync-overview.svg)
+
+```mermaid
+flowchart LR
+    U["UniFi"] --> P["Plugin Jobs"]
+    P --> N["NetBox"]
+    UI["Plugin UI"] --> P
+```
+
 ## Quick links
 
 - [Installation](Installation)
