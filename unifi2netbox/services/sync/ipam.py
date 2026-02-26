@@ -8,9 +8,7 @@ import os
 import subprocess  # nosec B404
 import threading
 
-import requests
-
-from .runtime_config import _netbox_verify_ssl, _parse_env_list, _unifi_verify_ssl
+from .runtime_config import _parse_env_list, _unifi_verify_ssl
 
 logger = logging.getLogger(__name__)
 
@@ -461,27 +459,41 @@ def find_available_static_ip(
                 )
                 return None
 
-        netbox_url = os.getenv("NETBOX_URL", "").rstrip("/")
-        netbox_token = os.getenv("NETBOX_TOKEN", "")
-        url = f"{netbox_url}/api/ipam/prefixes/{prefix_id}/available-ips/"
-        headers = {"Authorization": f"Token {netbox_token}", "Accept": "application/json"}
-
+        # Enumerate candidate IPs via Django ORM: all host addresses in the prefix
+        # that are not already assigned in NetBox's ipam_ipaddress table.
         try:
-            resp = requests.get(
-                url,
-                headers=headers,
-                params={"limit": max_attempts * 5},
-                verify=_netbox_verify_ssl(),
-                timeout=10,
-            )
-            resp.raise_for_status()
-            candidates = resp.json()
-        except Exception as e:
-            logger.error(f"Failed to query available IPs for prefix {prefix_obj.prefix}: {e}")
-            return None
+            import ipaddress as _ipaddress
+            from ipam.models import IPAddress as _IPAddress
 
-        if not isinstance(candidates, list):
-            logger.error(f"Unexpected response from available-ips endpoint: {type(candidates)}")
+            network = _ipaddress.ip_network(prefix_obj.prefix, strict=False)
+            prefix_filter: dict = {"prefix": prefix_obj.prefix}
+            if vrf_id is not None:
+                prefix_filter["vrf_id"] = vrf_id
+
+            # Collect IPs already assigned within this prefix (without mask)
+            # Use __net_host_contained to scope to the prefix network
+            assigned_qs = _IPAddress.objects.filter(
+                address__net_host_contained=str(network)
+            )
+            assigned_set = set()
+            for ip_obj in assigned_qs:
+                try:
+                    assigned_set.add(str(_ipaddress.ip_interface(str(ip_obj.address)).ip))
+                except Exception:
+                    pass
+
+            # Build candidate list from host addresses (skip network/broadcast)
+            candidates = []
+            limit = max_attempts * 5
+            for host in network.hosts():
+                if len(candidates) >= limit:
+                    break
+                host_str = str(host)
+                if host_str not in assigned_set:
+                    candidates.append({"address": f"{host_str}/{network.prefixlen}"})
+
+        except Exception as e:
+            logger.error(f"Failed to enumerate available IPs for prefix {prefix_obj.prefix}: {e}")
             return None
 
         attempts = 0

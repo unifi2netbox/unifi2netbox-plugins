@@ -21,7 +21,6 @@ _SECRET_FIELDS = {
     "password",
     "unifi_api_key",
     "unifi_password",
-    "netbox_token",
 }
 
 DEFAULT_SETTINGS: dict[str, Any] = {
@@ -39,9 +38,6 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "verify_ssl": True,
     "unifi_verify_ssl": True,
     "unifi_persist_session": True,
-    # Optional for plugin runtime. If omitted, plugin resolves internal NetBox API context.
-    "netbox_url": "",
-    "netbox_token": "",
     "netbox_import_tenant": "",
     "netbox_tenant": "",
     "netbox_verify_ssl": True,
@@ -92,8 +88,6 @@ DEFAULT_SETTINGS: dict[str, Any] = {
 _ENV_MAP: dict[str, str] = {
     "unifi_verify_ssl": "UNIFI_VERIFY_SSL",
     "unifi_persist_session": "UNIFI_PERSIST_SESSION",
-    "netbox_url": "NETBOX_URL",
-    "netbox_token": "NETBOX_TOKEN",
     "netbox_verify_ssl": "NETBOX_VERIFY_SSL",
     "netbox_serial_mode": "NETBOX_SERIAL_MODE",
     "netbox_vrf_mode": "NETBOX_VRF_MODE",
@@ -442,8 +436,6 @@ def validate_plugin_settings(plugin_settings: dict[str, Any]) -> list[str]:
                 "auth_mode=login requires plugin settings 'username'+'password' "
                 "(or 'unifi_username'+'unifi_password')."
             )
-
-    # netbox_url/netbox_token are optional in plugin config and can be injected at runtime.
 
     tenant_import = str(resolve_secret_value(plugin_settings.get("netbox_import_tenant") or "")).strip()
     tenant_fallback = str(resolve_secret_value(plugin_settings.get("netbox_tenant") or "")).strip()

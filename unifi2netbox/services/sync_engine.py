@@ -7,7 +7,6 @@ import re
 import requests
 import warnings
 import logging
-import pynetbox
 import ipaddress
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -15,6 +14,7 @@ from urllib3.exceptions import InsecureRequestWarning
 # Import the unifi module instead of defining the Unifi class
 from .sync import ipam as ipam_helpers
 from .sync import vrf as vrf_helpers
+from .sync.netbox_orm import build_netbox_orm_client
 from .sync.ipam import (
     _get_network_info_for_ip,
     _fetch_legacy_networkconf,
@@ -40,6 +40,25 @@ from .unifi.spec_refresh import refresh_specs_bundle, write_specs_bundle
 # Suppress only the InsecureRequestWarning
 warnings.simplefilter("ignore", InsecureRequestWarning)
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# pynetbox compatibility shim
+# ---------------------------------------------------------------------------
+# The sync engine was originally written against the pynetbox HTTP client.
+# We now use a Django ORM adapter (build_netbox_orm_client) instead, so
+# pynetbox is no longer a dependency.  The adapter raises RuntimeError on
+# failures, so we map pynetbox.core.query.RequestError → RuntimeError so
+# all existing ``except pynetbox.core.query.RequestError`` clauses continue
+# to work without modification.
+
+class _PynetboxCompat:
+    """Minimal pynetbox namespace shim for backward compatibility."""
+
+    class core:
+        class query:
+            RequestError = RuntimeError
+
+pynetbox = _PynetboxCompat()
 
 # Threading limits (configurable via env vars)
 # Use guarded parsing to avoid startup crashes on invalid env values.
@@ -87,36 +106,52 @@ _NON_HEX_RE = re.compile(r"[^0-9A-Fa-f]")
 
 def get_postable_fields(base_url, token, url_path):
     """
-    Retrieves the POST-able fields for NetBox path.
+    Return the writable fields for a NetBox model path.
+
+    Previously made an HTTP OPTIONS call to the NetBox REST API.  Now uses
+    Django model introspection so no HTTP call (or URL/token) is needed.
+
+    The return value is a dict keyed by field name — callers only check
+    ``'role' in fields`` vs ``'device_role' in fields``, so any truthy value
+    for each key is sufficient.
     """
-    normalized_base = base_url.rstrip("/")
     normalized_path = url_path.strip("/")
-    cache_key = (normalized_base, normalized_path)
+    cache_key = ("orm", normalized_path)
     with postable_fields_lock:
         cached_fields = postable_fields_cache.get(cache_key)
     if cached_fields is not None:
-        logger.debug(f"Using cached POST-able fields for NetBox path: {normalized_path}")
+        logger.debug(f"Using cached POST-able fields for: {normalized_path}")
         return cached_fields
 
-    url = f"{normalized_base}/api/{normalized_path}/"
-    logger.debug(f"Retrieving POST-able fields from NetBox API: {url}")
-    headers = {
-        "Authorization": f"Token {token}",
-        "Content-Type": "application/json",
-    }
-    response = requests.options(
-        url,
-        headers=headers,
-        verify=_netbox_verify_ssl(),
-        timeout=15,
-    )
-    response.raise_for_status()  # Raise an error if the response is not successful
+    fields: dict[str, bool] = {}
+    try:
+        # Map url_path patterns to Django models
+        _path_to_model = {
+            "dcim/devices": "dcim.device",
+            "dcim/device-types": "dcim.devicetype",
+            "dcim/interfaces": "dcim.interface",
+            "ipam/prefixes": "ipam.prefix",
+            "ipam/ip-addresses": "ipam.ipaddress",
+        }
+        model_label = _path_to_model.get(normalized_path)
+        if model_label:
+            from django.apps import apps
+            app_label, model_name = model_label.split(".")
+            model = apps.get_model(app_label, model_name)
+            fields = {
+                f.name: True
+                for f in model._meta.get_fields()
+                if hasattr(f, "column")  # only concrete fields
+            }
+        logger.debug(f"Introspected {len(fields)} fields for {normalized_path}")
+    except Exception as exc:
+        logger.debug(f"Field introspection failed for {normalized_path}: {exc}")
+        # Safe fallback: assume modern NetBox 4.x field naming
+        if normalized_path == "dcim/devices":
+            fields = {"role": True, "status": True}
 
-    # Extract the available POST fields from the API schema
-    fields = response.json().get("actions", {}).get("POST", {})
     with postable_fields_lock:
         postable_fields_cache[cache_key] = fields
-    logger.debug(f"Retrieved {len(fields)} POST-able fields from NetBox API")
     return fields
 
 
@@ -182,7 +217,7 @@ def ensure_prefix_for_ip(nb, site, tenant, vrf, ip_str):
             if created:
                 logger.info(f"Auto-created prefix {prefix_cidr} for site {site.name}")
                 return created
-        except pynetbox.core.query.RequestError as exc:
+        except RuntimeError as exc:
             last_error = exc
             continue
 
@@ -1869,13 +1904,10 @@ def process_device(unifi, nb, site, device, nb_ubiquity, tenant, unifi_device_ip
                 if asset_tag:
                     device_data['asset_tag'] = asset_tag
 
-                logger.debug("Getting postable fields for NetBox API")
-                netbox_url = str(os.getenv("NETBOX_URL") or "").strip()
-                netbox_token = str(os.getenv("NETBOX_TOKEN") or "").strip()
-                if not netbox_url or not netbox_token:
-                    logger.error("NETBOX_URL or NETBOX_TOKEN missing in runtime environment. Cannot create devices.")
-                    return
-                available_fields = get_postable_fields(netbox_url, netbox_token, 'dcim/devices')
+                logger.debug("Getting postable fields for NetBox Device model")
+                # Pass empty strings — get_postable_fields now uses Django model
+                # introspection and does not need a URL or token.
+                available_fields = get_postable_fields("", "", 'dcim/devices')
                 logger.debug(f"Available NetBox API fields: {list(available_fields.keys())}")
                 if 'role' in available_fields:
                     logger.debug(f"Using 'role' field for device role (ID: {nb_device_role.id})")
@@ -2605,33 +2637,10 @@ def _build_netbox_context(config):
         unifi_api_key_header,
     ) = _require_unifi_credentials()
 
-    # Connect to Netbox
-    try:
-        netbox_url = config['NETBOX']['URL']
-    except (KeyError, TypeError):
-        logger.error("NetBox URL is missing. Set NETBOX_URL in .env.")
-        raise SystemExit(1)
-    if not netbox_url:
-        logger.error("NetBox URL is empty. Set NETBOX_URL in .env.")
-        raise SystemExit(1)
-    netbox_token = os.getenv("NETBOX_TOKEN")
-    if not netbox_token:
-        logger.error("Netbox token is missing from environment variables.")
-        raise SystemExit(1)
-
-    # Create a custom HTTP session as this script will often exceed the default pool size of 10
-    session = requests.Session()
-    adapter = requests.adapters.HTTPAdapter(pool_connections=50, pool_maxsize=50)
-
-    # Adjust connection pool size
-    session.mount("http://", adapter)
-    session.mount("https://", adapter)
-    session.verify = _netbox_verify_ssl()
-
-    logger.debug(f"Initializing NetBox API connection to: {netbox_url}")
-    nb = pynetbox.api(netbox_url, token=netbox_token, threading=True)
-    nb.http_session = session  # Attach the custom session
-    logger.debug("NetBox API connection established")
+    # Build the NetBox ORM client (replaces pynetbox HTTP API calls)
+    logger.debug("Initializing NetBox ORM client (in-process Django ORM)")
+    nb = build_netbox_orm_client()
+    logger.debug("NetBox ORM client ready")
 
     nb_ubiquity = nb.dcim.manufacturers.get(slug="ubiquity")
     try:

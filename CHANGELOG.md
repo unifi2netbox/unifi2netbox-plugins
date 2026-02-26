@@ -4,6 +4,44 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-02-26
+
+### Changed — **Architecture: Django ORM replaces pynetbox HTTP self-calls**
+
+The sync engine previously used `pynetbox` (an HTTP REST client) to read and
+write NetBox data.  Because the plugin runs *inside* the NetBox/Django process
+it can access the database directly via the Django ORM — no HTTP round-trip
+is needed.
+
+All NetBox reads and writes in `sync_engine.py`, `vrf.py`, and the surrounding
+helper modules now go through a thin Django ORM adapter
+(`unifi2netbox.services.sync.netbox_orm.build_netbox_orm_client()`).  The
+adapter exposes the same `nb.dcim.devices.get(...)`, `.filter(...)`, `.all()`
+and `.create(...)` surface that the sync engine already used, so no logic in
+the sync engine needed to change.
+
+### Removed
+
+- **`netbox_url`** field removed from `GlobalSyncSettings` model (migration
+  `0004` drops the column).  The field was added in 0.1.8 to let operators
+  override the internal HTTP self-call URL — it is no longer needed.
+- **`pynetbox~=7.4.1`** removed from package dependencies.
+- `_resolve_internal_netbox_url()`, `_resolve_internal_netbox_token()`, and
+  `_inject_internal_netbox_runtime_context()` removed from `sync_service.py`.
+- `netbox_url`/`netbox_token` removed from `DEFAULT_SETTINGS` and `_ENV_MAP`
+  in `configuration.py`; `netbox_token` removed from `_SECRET_FIELDS`.
+- `get_postable_fields()` in `sync_engine.py` no longer makes HTTP OPTIONS
+  requests — it now introspects Django model `_meta` to discover writable
+  fields.
+
+### Migration
+
+Run `python manage.py migrate netbox_unifi_sync` to apply migration `0004`
+which drops the `netbox_url` column.
+
+If you have `netbox_url` set in your `PLUGINS_CONFIG`, remove it — it is no
+longer used.
+
 ### Added
 - Gateway and DNS are now read from UniFi network config (`gateway_ip`, `dhcpd_dns_1-4`) for DHCP-to-static IP conversion.
 - Fallback env vars `DEFAULT_GATEWAY` and `DEFAULT_DNS` when UniFi network config lacks gateway/DNS.

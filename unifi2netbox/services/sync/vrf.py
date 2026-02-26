@@ -6,8 +6,6 @@ import logging
 import os
 import threading
 
-import pynetbox
-
 from .runtime_config import _normalize_text_value
 
 logger = logging.getLogger(__name__)
@@ -107,7 +105,7 @@ def get_or_create_vrf(nb, vrf_name: str):
                 vrf = nb.ipam.vrfs.create({"name": normalized_name})
                 if vrf is not None:
                     logger.info(f"VRF {normalized_name} with ID {vrf.id} successfully added to NetBox.")
-            except pynetbox.core.query.RequestError as e:
+            except RuntimeError as e:
                 logger.warning(f"Failed to create VRF {normalized_name}: {e}. Trying to refetch.")
                 existing = _find_vrfs_by_name(nb, normalized_name)
                 if existing:

@@ -74,15 +74,6 @@ class GlobalSyncSettings(models.Model):
     sync_interval_minutes = models.PositiveIntegerField(default=60)
     dry_run_default = models.BooleanField(default=False)
 
-    netbox_url = models.CharField(
-        max_length=255,
-        blank=True,
-        help_text=(
-            "Internal NetBox API base URL used by the sync worker "
-            "(e.g. http://127.0.0.1:8000). Leave blank to auto-detect."
-        ),
-    )
-
     verify_ssl_default = models.BooleanField(default=True)
     request_timeout = models.PositiveIntegerField(default=15)
     http_retries = models.PositiveIntegerField(default=3)

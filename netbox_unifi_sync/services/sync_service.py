@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any
 
 from unifi2netbox.services.sync_engine import run_sync_once
@@ -40,109 +39,29 @@ def _as_list(value: Any) -> list[str]:
     return [str(value).strip()]
 
 
-def _resolve_internal_netbox_url(plugin_settings: dict[str, Any]) -> str:
-    # 1. Explicit override from plugin_settings (comes from GlobalSyncSettings.netbox_url
-    #    or PLUGINS_CONFIG netbox_url key).
-    configured = str(resolve_secret_value(plugin_settings.get("netbox_url") or "")).strip()
-    if configured:
-        return configured.rstrip("/")
-
-    # 2. Environment variable override.
-    for env_name in ("NETBOX_API_URL", "NETBOX_URL"):
-        env_value = os.getenv(env_name, "").strip()
-        if env_value:
-            return env_value.rstrip("/")
-
-    # 3. Derive from NetBox Django settings.
-    #    The sync worker always runs inside the same host as NetBox, so 127.0.0.1
-    #    always routes correctly. Extract the port from ALLOWED_HOSTS when present
-    #    (e.g. "192.168.99.10:8000" → port 8000), otherwise default to 8000.
-    try:
-        from django.conf import settings as django_settings
-        scheme = "https" if getattr(django_settings, "SESSION_COOKIE_SECURE", False) else "http"
-        base_path = getattr(django_settings, "BASE_PATH", "").strip("/")
-        suffix = f"/{base_path}" if base_path else ""
-
-        allowed_hosts = getattr(django_settings, "ALLOWED_HOSTS", [])
-        detected_port: str | None = None
-        for h in allowed_hosts:
-            if h in ("*", "", "localhost", "127.0.0.1"):
-                continue
-            if ":" in h:
-                detected_port = h.rsplit(":", 1)[-1]
-                break
-
-        port = detected_port or "8000"
-        return f"{scheme}://127.0.0.1:{port}{suffix}"
-    except Exception:
-        pass
-
-    return "http://127.0.0.1:8000"
-
-
-def _resolve_internal_netbox_token(*, requested_by_id: int | None = None) -> str:
-    env_token = os.getenv("NETBOX_TOKEN", "").strip()
-    if env_token:
-        return env_token
-
-    try:
-        from django.contrib.auth import get_user_model
-        from users.models import Token
-    except Exception:
-        return ""
-
-    User = get_user_model()
-    user = None
-
-    if requested_by_id:
-        try:
-            user = User.objects.filter(pk=requested_by_id, is_active=True).first()
-        except Exception:
-            user = None
-
-    if user is None:
-        try:
-            user = User.objects.filter(is_superuser=True, is_active=True).order_by("id").first()
-        except Exception:
-            user = None
-
-    if user is None:
-        return ""
-
-    token = Token.objects.filter(user=user).first()
-    if token is None:
-        token = Token.objects.create(user=user)
-    return str(getattr(token, "key", "") or "").strip()
-
-
-def _inject_internal_netbox_runtime_context(
-    plugin_settings: dict[str, Any],
-    *,
-    requested_by_id: int | None = None,
-) -> dict[str, Any]:
-    resolved = dict(plugin_settings)
-
-    if not str(resolve_secret_value(resolved.get("netbox_url") or "")).strip():
-        resolved["netbox_url"] = _resolve_internal_netbox_url(resolved)
-
-    if not str(resolve_secret_value(resolved.get("netbox_token") or "")).strip():
-        token = _resolve_internal_netbox_token(requested_by_id=requested_by_id)
-        if token:
-            resolved["netbox_token"] = token
-
-    return resolved
-
-
 def _preflight_netbox(plugin_settings: dict[str, Any]) -> dict[str, Any]:
+    """
+    Verify that the NetBox ORM layer is accessible.
+
+    The plugin runs inside the Django/NetBox process, so there is no
+    HTTP URL to resolve — we simply confirm that NetBox models can be
+    imported and queried.
+    """
     try:
         import netbox
         netbox_version = getattr(netbox, "VERSION", None)
     except Exception:
         netbox_version = None
 
+    try:
+        from dcim.models import Site  # noqa: F401 — import-only connectivity check
+        orm_ok = True
+    except Exception:
+        orm_ok = False
+
     return {
-        "url": "internal",
-        "status": "ok",
+        "url": "internal (ORM)",
+        "status": "ok" if orm_ok else "error",
         "netbox_version": netbox_version,
     }
 
@@ -212,19 +131,6 @@ def execute_sync(
         plugin_settings = normalize_plugin_settings(config_overrides, include_defaults=True)
     else:
         plugin_settings = get_plugin_settings()
-    plugin_settings = _inject_internal_netbox_runtime_context(
-        plugin_settings,
-        requested_by_id=requested_by_id,
-    )
-
-    if not str(resolve_secret_value(plugin_settings.get("netbox_url") or "")).strip():
-        raise SyncConfigurationError("Unable to resolve internal NetBox API URL for sync runtime.")
-    if not str(resolve_secret_value(plugin_settings.get("netbox_token") or "")).strip():
-        raise SyncConfigurationError(
-            "Unable to resolve internal NetBox API token. "
-            "Create an API token for the requesting user (or first active superuser), "
-            "or provide 'netbox_token' in runtime overrides."
-        )
 
     validation_errors = validate_plugin_settings(plugin_settings)
     if validation_errors:
