@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json
+import re
 
 from django import forms
 from dcim.models import Site
@@ -9,20 +9,84 @@ from .models import GlobalSyncSettings, SiteMapping, UnifiController
 from .services.orchestrator import discover_unifi_site_names
 
 
-class JSONTextAreaField(forms.CharField):
+# ---------------------------------------------------------------------------
+# Custom field helpers
+# ---------------------------------------------------------------------------
+
+class _CommaSeparatedField(forms.CharField):
+    """
+    Text input that stores a comma-separated list of strings.
+    Shown in the UI as a single text input (e.g. "tag1, tag2, tag3").
+    """
+
     def to_python(self, value):
-        raw = super().to_python(value)
-        raw = (raw or "").strip()
-        if not raw:
-            return None
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise forms.ValidationError(f"Invalid JSON: {exc}") from exc
+        raw = super().to_python(value) or ""
+        return [item.strip() for item in raw.split(",") if item.strip()]
+
+    def prepare_value(self, value):
+        if isinstance(value, list):
+            return ", ".join(str(item) for item in value)
+        return value or ""
 
 
-# NetBox 4.x DeviceStatusChoices (dcim/choices.py) — value used directly as-is
-# by the sync engine via NETBOX_DEVICE_STATUS env var.
+class _OnePerLineField(forms.CharField):
+    """
+    Textarea where each non-empty line is one entry in a list.
+    Used for regex patterns, DHCP ranges, etc.
+    """
+
+    def to_python(self, value):
+        raw = super().to_python(value) or ""
+        return [line.strip() for line in raw.splitlines() if line.strip()]
+
+    def prepare_value(self, value):
+        if isinstance(value, list):
+            return "\n".join(str(item) for item in value)
+        return value or ""
+
+
+class _KeyValueField(forms.CharField):
+    """
+    Textarea where each non-empty line is ``KEY = Value``.
+    Stores and returns a dict.  Keys are uppercased automatically.
+
+    Example input::
+
+        WIRELESS = Wireless AP
+        SWITCH = Switch
+        ROUTER = Router
+    """
+
+    def to_python(self, value):
+        raw = super().to_python(value) or ""
+        result: dict[str, str] = {}
+        for line in raw.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                raise forms.ValidationError(
+                    f"Invalid line (expected 'KEY = Value'): {line!r}"
+                )
+            key, _, val = line.partition("=")
+            key = key.strip().upper()
+            val = val.strip()
+            if key and val:
+                result[key] = val
+        return result
+
+    def prepare_value(self, value):
+        if isinstance(value, dict):
+            return "\n".join(f"{k} = {v}" for k, v in value.items())
+        return value or ""
+
+
+# ---------------------------------------------------------------------------
+# NetBox 4.x device status choices
+# ---------------------------------------------------------------------------
+
+# NetBox 4.x DeviceStatusChoices (dcim/choices.py) — value passed directly
+# to the sync engine via NETBOX_DEVICE_STATUS env var.
 _DEVICE_STATUS_CHOICES = [
     ("offline", "Offline"),
     ("active", "Active"),
@@ -34,58 +98,117 @@ _DEVICE_STATUS_CHOICES = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Main settings form
+# ---------------------------------------------------------------------------
+
 class GlobalSyncSettingsForm(forms.ModelForm):
-    default_tags_json = JSONTextAreaField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
-    asset_tag_patterns_json = JSONTextAreaField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
-    netbox_roles_json = JSONTextAreaField(required=True, widget=forms.Textarea(attrs={"rows": 5}))
+    # --- friendly replacements for JSON fields ----------------------------
+
+    # default_tags: stored as JSON list → shown as comma-separated text
+    default_tags_text = _CommaSeparatedField(
+        required=False,
+        label="Default tags",
+        help_text='Tags added to every synced device, separated by commas (e.g. "unifi, wifi").',
+        widget=forms.TextInput(attrs={"placeholder": "unifi, wifi, managed"}),
+    )
+
+    # asset_tag_patterns: stored as JSON list → shown as one regex per line
+    asset_tag_patterns_text = _OnePerLineField(
+        required=False,
+        label="Asset tag patterns",
+        help_text=(
+            "One regular expression per line.  "
+            "First match wins; use a capture group for the extracted value.  "
+            r"Example: [-_]?(A?ID\d+)$"
+        ),
+        widget=forms.Textarea(attrs={"rows": 4, "placeholder": r"[-_]?(A?ID\d+)$"}),
+    )
+
+    # netbox_roles: stored as JSON dict → shown as KEY = Value lines
+    netbox_roles_text = _KeyValueField(
+        required=True,
+        label="NetBox role mappings",
+        help_text=(
+            "One mapping per line in the format  KEY = Role name.  "
+            "Keys are the UniFi device role slugs (uppercased).  "
+            "Example: WIRELESS = Wireless AP"
+        ),
+        widget=forms.Textarea(attrs={
+            "rows": 8,
+            "placeholder": (
+                "WIRELESS = Wireless AP\n"
+                "SWITCH = Switch\n"
+                "ROUTER = Router\n"
+                "SECURITY = Security Appliance\n"
+                "PHONE = VoIP Phone\n"
+                "OTHER = Network Device"
+            ),
+        }),
+    )
 
     class Meta:
         model = GlobalSyncSettings
+        # Exclude the raw JSON fields; we handle them via the friendly fields above.
         exclude = ("singleton_key", "updated", "default_tags", "asset_tag_patterns", "netbox_roles")
         widgets = {
-            "dhcp_ranges": forms.Textarea(attrs={"rows": 4, "placeholder": "192.168.1.0/24\n10.0.0.0/8"}),
+            "dhcp_ranges": forms.Textarea(attrs={
+                "rows": 4,
+                "placeholder": "192.168.1.0/24\n10.0.0.0/8",
+            }),
             "netbox_device_status": forms.Select(choices=_DEVICE_STATUS_CHOICES),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["asset_tag_patterns_json"].label = "Asset Tag Patterns (JSON)"
-        self.fields["asset_tag_patterns_json"].help_text = (
-            'Example: ["[-_]?(A?ID\\\\d+)$", "ASSET[: -]?(\\\\d+)"]'
-        )
         instance = kwargs.get("instance")
         if instance:
-            self.fields["default_tags_json"].initial = json.dumps(instance.default_tags, indent=2)
+            self.fields["default_tags_text"].initial = (
+                self.fields["default_tags_text"].prepare_value(instance.default_tags)
+            )
             patterns = instance.asset_tag_patterns or [r"[-_]?(A?ID\d+)$"]
-            self.fields["asset_tag_patterns_json"].initial = json.dumps(patterns, indent=2)
-            self.fields["netbox_roles_json"].initial = json.dumps(instance.netbox_roles, indent=2)
+            self.fields["asset_tag_patterns_text"].initial = (
+                self.fields["asset_tag_patterns_text"].prepare_value(patterns)
+            )
+            self.fields["netbox_roles_text"].initial = (
+                self.fields["netbox_roles_text"].prepare_value(instance.netbox_roles)
+            )
 
     def clean(self):
         cleaned = super().clean()
-        tags = cleaned.get("default_tags_json")
-        asset_tag_patterns = cleaned.get("asset_tag_patterns_json")
-        roles = cleaned.get("netbox_roles_json")
 
-        if tags is None:
-            cleaned["default_tags"] = []
-        elif not isinstance(tags, list):
-            self.add_error("default_tags_json", "default_tags must be a JSON list.")
-        else:
-            cleaned["default_tags"] = [str(item).strip() for item in tags if str(item).strip()]
+        # --- default_tags ---
+        tags = cleaned.get("default_tags_text") or []
+        cleaned["default_tags"] = [str(t).strip() for t in tags if str(t).strip()]
 
-        if asset_tag_patterns is None:
-            cleaned["asset_tag_patterns"] = []
-        elif not isinstance(asset_tag_patterns, list):
-            self.add_error("asset_tag_patterns_json", "asset_tag_patterns must be a JSON list.")
-        else:
-            cleaned["asset_tag_patterns"] = [str(item).strip() for item in asset_tag_patterns if str(item).strip()]
+        # --- asset_tag_patterns: validate each line as a regex ---
+        patterns = cleaned.get("asset_tag_patterns_text") or []
+        validated_patterns = []
+        for idx, pat in enumerate(patterns):
+            pat = str(pat).strip()
+            if not pat:
+                continue
+            try:
+                re.compile(pat)
+            except re.error as exc:
+                self.add_error(
+                    "asset_tag_patterns_text",
+                    f"Line {idx + 1} is not a valid regular expression: {exc}",
+                )
+                break
+            validated_patterns.append(pat)
+        cleaned["asset_tag_patterns"] = validated_patterns
 
-        if roles is None:
-            self.add_error("netbox_roles_json", "netbox_roles is required.")
-        elif not isinstance(roles, dict) or not roles:
-            self.add_error("netbox_roles_json", "netbox_roles must be a non-empty JSON object.")
+        # --- netbox_roles ---
+        roles = cleaned.get("netbox_roles_text")
+        if not roles:
+            self.add_error("netbox_roles_text", "At least one role mapping is required.")
         else:
-            cleaned["netbox_roles"] = {str(k).strip().upper(): str(v).strip() for k, v in roles.items() if str(k).strip() and str(v).strip()}
+            cleaned["netbox_roles"] = {
+                str(k).strip().upper(): str(v).strip()
+                for k, v in roles.items()
+                if str(k).strip() and str(v).strip()
+            }
 
         return cleaned
 

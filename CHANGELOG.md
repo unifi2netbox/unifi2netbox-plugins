@@ -4,6 +4,32 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-02-26
+
+### Changed — **JSON fields replaced with user-friendly inputs**
+
+The three Settings fields that previously required raw JSON are now ordinary
+text fields that everyone can use without knowing JSON syntax.
+
+| Field | Old format | New format |
+|---|---|---|
+| **Default tags** | `["unifi", "wifi"]` | `unifi, wifi` (comma-separated text input) |
+| **Asset tag patterns** | `["[-_]?(A?ID\\d+)$"]` | One regex per line (textarea) |
+| **NetBox role mappings** | `{"WIRELESS": "Wireless AP", ...}` | `WIRELESS = Wireless AP` (one mapping per line) |
+
+All three fields continue to store the same data in the database — only the
+input widget has changed.  Existing saved values are converted automatically
+when the Settings page is loaded.
+
+Validation is unchanged: asset-tag patterns are still tested as regular
+expressions, and role mappings still require at least one entry.
+
+### Files changed
+
+| File | Change |
+|---|---|
+| `netbox_unifi_sync/forms.py` | New `_CommaSeparatedField`, `_OnePerLineField`, `_KeyValueField`; replaced `JSONTextAreaField`; renamed form fields |
+
 ## [0.2.4] - 2026-02-26
 
 ### Fixed — **Complete and validated device status dropdown**
