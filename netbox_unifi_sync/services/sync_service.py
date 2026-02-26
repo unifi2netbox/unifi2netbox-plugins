@@ -4,8 +4,6 @@ import logging
 import os
 from typing import Any
 
-import requests
-
 from unifi2netbox.services.sync_engine import run_sync_once
 
 from ..configuration import (
@@ -52,8 +50,18 @@ def _resolve_internal_netbox_url(plugin_settings: dict[str, Any]) -> str:
         if env_value:
             return env_value.rstrip("/")
 
-    # netbox-docker default service hostname
-    return "http://netbox:8080"
+    # Derive from NetBox Django settings — works on any platform without extra config
+    try:
+        from django.conf import settings as django_settings
+        allowed_hosts = getattr(django_settings, "ALLOWED_HOSTS", [])
+        host = next((h for h in allowed_hosts if h not in ("*", "")), None)
+        if host:
+            scheme = "https" if getattr(django_settings, "SESSION_COOKIE_SECURE", False) else "http"
+            return f"{scheme}://{host}"
+    except Exception:
+        pass
+
+    return "http://localhost"
 
 
 def _resolve_internal_netbox_token(*, requested_by_id: int | None = None) -> str:
@@ -110,25 +118,16 @@ def _inject_internal_netbox_runtime_context(
 
 
 def _preflight_netbox(plugin_settings: dict[str, Any]) -> dict[str, Any]:
-    base_url = str(resolve_secret_value(plugin_settings.get("netbox_url") or "")).rstrip("/")
-    token = str(resolve_secret_value(plugin_settings.get("netbox_token") or ""))
-    verify_ssl = bool(plugin_settings.get("netbox_verify_ssl", True))
-    timeout = int(plugin_settings.get("unifi_request_timeout", 15) or 15)
+    try:
+        import netbox
+        netbox_version = getattr(netbox, "VERSION", None)
+    except Exception:
+        netbox_version = None
 
-    status_url = f"{base_url}/api/status/"
-    headers = {"Accept": "application/json"}
-    if token:
-        headers["Authorization"] = f"Token {token}"
-    response = requests.get(status_url, headers=headers, timeout=timeout, verify=verify_ssl)
-    if response.status_code == 403 and "Authorization" in headers:
-        logger.warning("Configured NetBox token was rejected for /api/status; retrying unauthenticated preflight.")
-        response = requests.get(status_url, headers={"Accept": "application/json"}, timeout=timeout, verify=verify_ssl)
-    response.raise_for_status()
-    payload = response.json() if response.content else {}
     return {
-        "url": base_url,
+        "url": "internal",
         "status": "ok",
-        "netbox_version": payload.get("netbox-version") or payload.get("version"),
+        "netbox_version": netbox_version,
     }
 
 
