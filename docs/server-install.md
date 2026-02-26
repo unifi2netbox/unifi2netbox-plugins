@@ -38,10 +38,6 @@ PLUGINS = ["netbox_unifi_sync"]
 PLUGINS_CONFIG = {
     "netbox_unifi_sync": {}
 }
-
-API_TOKEN_PEPPERS = {
-    1: "replace-with-a-long-random-secret",
-}
 ```
 
 ### 3. Run migrations

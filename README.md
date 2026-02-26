@@ -47,14 +47,6 @@ PLUGINS_CONFIG = {
 }
 ```
 
-Debian note: NetBox 4.5+ requires `API_TOKEN_PEPPERS` in `configuration.py`:
-
-```python
-API_TOKEN_PEPPERS = {
-    1: "replace-with-a-long-random-secret",
-}
-```
-
 ### 3. Apply migrations
 
 ```bash

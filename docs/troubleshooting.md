@@ -12,6 +12,18 @@
 
 ## Common Issues
 
+### `HTTPConnectionPool(host='netbox', port=8080)` error
+
+This error indicates an outdated plugin version (0.1.3 or earlier) that used a hardcoded Docker-only fallback URL. It does not work on standard server installs.
+
+Upgrade to fix:
+
+```bash
+pip install --upgrade netbox-unifi-sync
+python manage.py migrate
+# restart netbox + netbox-worker
+```
+
 ### Connection timeout / connection refused
 
 Check:

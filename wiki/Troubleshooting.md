@@ -19,7 +19,13 @@ Validate UniFi site names vs NetBox site names and add mapping rows.
 
 ## Dry-run fails with NetBox API URL
 
-In containerized setups, run sync from worker context and ensure internal URL resolves (typically `http://netbox:8080`).
+The plugin auto-resolves the internal NetBox URL from Django settings. If you see a connection error to `netbox:8080`, upgrade to the latest version:
+
+```bash
+pip install --upgrade netbox-unifi-sync
+python manage.py migrate
+# restart netbox + netbox-worker
+```
 
 ## PyPI publish fails with trusted publisher
 

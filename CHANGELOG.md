@@ -29,7 +29,20 @@ All notable changes to this project are documented in this file.
 ### Removed
 - Raw auto-generated git-log changelog format replaced by structured release notes.
 
-## 2026-02-26
+## [0.1.5] - 2026-02-26
+
+### Fixed
+- Documentation corrections: removed outdated `API_TOKEN_PEPPERS` snippet, fixed `netbox:8080` references, translated wiki to English.
+
+## [0.1.4] - 2026-02-26
+
+### Fixed
+- NetBox URL resolution now works on all platforms (venv, Docker, LXC).
+  The plugin derives the internal NetBox URL from Django `ALLOWED_HOSTS` and
+  `SESSION_COOKIE_SECURE`, falling back to `http://localhost`. The hardcoded
+  Docker-only fallback `http://netbox:8080` has been removed.
+
+## [0.1.3] - 2026-02-26
 
 ### Changed
 - Bumped release version to `0.1.3`.
