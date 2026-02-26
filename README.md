@@ -1,5 +1,11 @@
 # netbox_unifi_sync
 
+> [!WARNING]  
+> We are aware that there are issues in the codebase.  
+> Please remember that this is a hobby project maintained in our spare time.  
+> Fixes and improvements will be addressed as time allows.  
+> Your patience and understanding are appreciated.
+
 `netbox_unifi_sync` is a NetBox 4.2+ plugin that runs UniFi -> NetBox sync jobs inside NetBox workers.
 
 ## Visual Overview
