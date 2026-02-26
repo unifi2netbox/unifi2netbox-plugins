@@ -640,6 +640,25 @@ def sync_device_custom_fields(nb, nb_device, device):
         logger.debug(f"Updated custom fields for {nb_device.name}")
 
 
+def _cable_touches_patch_port(cable_obj) -> bool:
+    """Return True if either end of *cable_obj* terminates on a Front Port or
+    Rear Port.  Those are patch-panel connections that are managed manually and
+    must never be touched by automated cable sync."""
+    _PATCH_TYPES = {"dcim.frontport", "dcim.rearport"}
+    try:
+        for term in list(getattr(cable_obj, "a_terminations", None) or []):
+            ot = getattr(term, "object_type", None)
+            if ot and str(ot) in _PATCH_TYPES:
+                return True
+        for term in list(getattr(cable_obj, "b_terminations", None) or []):
+            ot = getattr(term, "object_type", None)
+            if ot and str(ot) in _PATCH_TYPES:
+                return True
+    except Exception:
+        pass
+    return False
+
+
 def sync_uplink_cable(nb, nb_device, device, all_nb_devices_by_mac):
     """Create cable between device uplink port and upstream device if both exist in NetBox.
     For offline devices: remove existing cables instead of creating new ones."""
@@ -648,7 +667,9 @@ def sync_uplink_cable(nb, nb_device, device, all_nb_devices_by_mac):
     # Check if device is offline — remove cables and skip
     device_state = (device.get("state") or device.get("status") or "").upper()
     if device_state in ("OFFLINE", "DISCONNECTED", "0"):
-        # Remove all cables from this device's interfaces
+        # Remove cables from this device's interfaces, but only if the cable
+        # does NOT connect to a Front Port or Rear Port on the other end
+        # (those are patch-panel connections managed manually).
         try:
             ifaces = list(nb.dcim.interfaces.filter(device_id=nb_device.id))
             for iface in ifaces:
@@ -656,9 +677,14 @@ def sync_uplink_cable(nb, nb_device, device, all_nb_devices_by_mac):
                     try:
                         cable_id = iface.cable.id if hasattr(iface.cable, 'id') else iface.cable
                         cable_obj = nb.dcim.cables.get(cable_id)
-                        if cable_obj:
+                        if cable_obj and not _cable_touches_patch_port(cable_obj):
                             cable_obj.delete()
                             logger.info(f"Removed cable from offline device {device_name}:{iface.name}")
+                        elif cable_obj:
+                            logger.debug(
+                                f"Skipping cable removal for {device_name}:{iface.name} "
+                                f"— cable connects to a front/rear port (patch panel)"
+                            )
                     except Exception as e:
                         logger.debug(f"Could not remove cable from {device_name}:{iface.name}: {e}")
         except Exception as e:
@@ -739,6 +765,20 @@ def sync_uplink_cable(nb, nb_device, device, all_nb_devices_by_mac):
 
     # Check if cable already exists on this interface
     if our_iface.cable:
+        # If the existing cable connects to a front/rear port (patch panel),
+        # leave it alone — it was placed manually.
+        try:
+            existing_cable = nb.dcim.cables.get(
+                our_iface.cable.id if hasattr(our_iface.cable, "id") else our_iface.cable
+            )
+            if existing_cable and _cable_touches_patch_port(existing_cable):
+                logger.debug(
+                    f"Cable sync for {device_name}: skipping {our_iface.name} "
+                    f"— existing cable connects to a front/rear port (patch panel)"
+                )
+                return
+        except Exception:
+            pass
         logger.debug(f"Cable sync for {device_name}: cable already exists on {our_iface.name}")
         return
 
@@ -760,6 +800,24 @@ def sync_uplink_cable(nb, nb_device, device, all_nb_devices_by_mac):
 
     if not upstream_iface:
         logger.debug(f"Cable sync for {device_name}: no available interface on upstream device {upstream_nb.name} (upstream_port={upstream_port_name})")
+        return
+
+    # Final guard: if the upstream interface acquired a cable between our
+    # lookup and now (race) AND it connects to a patch port, skip.
+    if upstream_iface.cable:
+        try:
+            existing = nb.dcim.cables.get(
+                upstream_iface.cable.id if hasattr(upstream_iface.cable, "id") else upstream_iface.cable
+            )
+            if existing and _cable_touches_patch_port(existing):
+                logger.debug(
+                    f"Cable sync for {device_name}: upstream {upstream_nb.name}:{upstream_iface.name} "
+                    f"connects to a front/rear port — skipping"
+                )
+                return
+        except Exception:
+            pass
+        logger.debug(f"Cable sync for {device_name}: upstream {upstream_nb.name}:{upstream_iface.name} already has a cable — skipping")
         return
 
     with _cable_lock:
