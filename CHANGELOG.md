@@ -29,6 +29,20 @@ All notable changes to this project are documented in this file.
 ### Removed
 - Raw auto-generated git-log changelog format replaced by structured release notes.
 
+## [0.1.8] - 2026-02-26
+
+### Fixed
+- Sync worker no longer falls back to `http://localhost` when `ALLOWED_HOSTS` contains
+  only `["*"]` or a hostname without a port. The internal NetBox URL is now resolved as
+  `http://127.0.0.1:<port>` (port extracted from `ALLOWED_HOSTS` when present, defaulting
+  to `8000`). Fixes `could not be found` errors on standard Debian/venv installs where
+  gunicorn listens on port 8000.
+
+### Added
+- `netbox_url` field on `GlobalSyncSettings` (Settings UI). Set this to the internal API
+  base URL (e.g. `http://127.0.0.1:8000`) to override auto-detection. Leave blank to
+  auto-detect.
+
 ## [0.1.7] - 2026-02-26
 
 ### Fixed

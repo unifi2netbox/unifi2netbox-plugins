@@ -41,27 +41,43 @@ def _as_list(value: Any) -> list[str]:
 
 
 def _resolve_internal_netbox_url(plugin_settings: dict[str, Any]) -> str:
+    # 1. Explicit override from plugin_settings (comes from GlobalSyncSettings.netbox_url
+    #    or PLUGINS_CONFIG netbox_url key).
     configured = str(resolve_secret_value(plugin_settings.get("netbox_url") or "")).strip()
     if configured:
         return configured.rstrip("/")
 
+    # 2. Environment variable override.
     for env_name in ("NETBOX_API_URL", "NETBOX_URL"):
         env_value = os.getenv(env_name, "").strip()
         if env_value:
             return env_value.rstrip("/")
 
-    # Derive from NetBox Django settings — works on any platform without extra config
+    # 3. Derive from NetBox Django settings.
+    #    The sync worker always runs inside the same host as NetBox, so 127.0.0.1
+    #    always routes correctly. Extract the port from ALLOWED_HOSTS when present
+    #    (e.g. "192.168.99.10:8000" → port 8000), otherwise default to 8000.
     try:
         from django.conf import settings as django_settings
+        scheme = "https" if getattr(django_settings, "SESSION_COOKIE_SECURE", False) else "http"
+        base_path = getattr(django_settings, "BASE_PATH", "").strip("/")
+        suffix = f"/{base_path}" if base_path else ""
+
         allowed_hosts = getattr(django_settings, "ALLOWED_HOSTS", [])
-        host = next((h for h in allowed_hosts if h not in ("*", "")), None)
-        if host:
-            scheme = "https" if getattr(django_settings, "SESSION_COOKIE_SECURE", False) else "http"
-            return f"{scheme}://{host}"
+        detected_port: str | None = None
+        for h in allowed_hosts:
+            if h in ("*", "", "localhost", "127.0.0.1"):
+                continue
+            if ":" in h:
+                detected_port = h.rsplit(":", 1)[-1]
+                break
+
+        port = detected_port or "8000"
+        return f"{scheme}://127.0.0.1:{port}{suffix}"
     except Exception:
         pass
 
-    return "http://localhost"
+    return "http://127.0.0.1:8000"
 
 
 def _resolve_internal_netbox_token(*, requested_by_id: int | None = None) -> str:

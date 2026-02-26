@@ -111,6 +111,7 @@ def _build_override(
         "unifi_retry_backoff_base": float(first.retry_backoff_base),
         "unifi_retry_backoff_max": float(first.retry_backoff_max),
 
+        "netbox_url": settings.netbox_url or "",
         "netbox_import_tenant": settings.tenant_name,
         "netbox_default_vrf": settings.default_vrf_name,
         "netbox_vrf_mode": settings.vrf_mode,
