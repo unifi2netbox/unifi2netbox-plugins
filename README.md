@@ -29,6 +29,92 @@ flowchart LR
 
 ---
 
+## Architecture & Internal Flow
+
+### Runtime Execution Flow
+
+```mermaid
+flowchart TD
+    A[Scheduled Job / Manual Trigger] --> B[NetBox RQ Worker]
+    B --> C[Load Plugin Settings]
+    C --> D[Authenticate to UniFi]
+    D --> E[Fetch Data from UniFi API]
+    E --> F[Normalize / Map Data]
+    F --> G[Create / Update NetBox Objects]
+    G --> H[Write Audit Log]
+```
+
+---
+
+### Detailed Sync Pipeline
+
+```mermaid
+flowchart LR
+    U[UniFi API] --> V[Devices]
+    U --> W[VLANs]
+    U --> X[WLANs]
+    U --> Y[DHCP Scopes]
+
+    V --> M1[Device Mapping]
+    W --> M2[VLAN Mapping]
+    X --> M3[Wireless Mapping]
+    Y --> M4[IP Range Mapping]
+
+    M1 --> NB[NetBox ORM]
+    M2 --> NB
+    M3 --> NB
+    M4 --> NB
+
+    NB --> DB[(NetBox Database)]
+```
+
+---
+
+### Object Lifecycle Logic
+
+```mermaid
+flowchart TD
+    A[UniFi Object] --> B{Exists in NetBox?}
+    B -- Yes --> C[Update Object]
+    B -- No --> D[Create Object]
+    C --> E[Mark as Synced]
+    D --> E
+    E --> F{Cleanup Enabled?}
+    F -- Yes --> G[Remove Stale Objects]
+    F -- No --> H[Keep Orphaned Objects]
+```
+
+---
+
+### Authentication Flow
+
+```mermaid
+flowchart LR
+    A[Plugin Settings] --> B{Auth Mode}
+    B -- API Key --> C[Attach Authorization Header]
+    B -- Username/Password --> D[Session Login]
+    D --> E[Optional MFA]
+    C --> F[Authenticated API Session]
+    E --> F
+    F --> G[Execute Requests]
+```
+
+---
+
+### Error Handling & Retry Logic
+
+```mermaid
+flowchart TD
+    A[API Request] --> B{Success?}
+    B -- Yes --> C[Process Response]
+    B -- No --> D{Retry < Max Attempts?}
+    D -- Yes --> E[Backoff + Retry]
+    D -- No --> F[Log Error]
+    F --> G[Mark Job Failed]
+```
+
+---
+
 ## Features
 
 - Device sync (devices, interfaces, VLANs, prefixes, WLANs, uplink relations, IP assignments)
