@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "netbox-unifi-sync"
-version = "0.2.0"
+version = "0.2.1"
 description = "Production-ready NetBox plugin for UniFi synchronization"
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.11"
@@ -31,6 +31,9 @@ dependencies = [
   "python-slugify~=8.0.4",
   "urllib3~=2.6.3"
 ]
+
+[project.entry-points."netbox.plugins"]
+netbox_unifi_sync = "netbox_unifi_sync"
 
 [project.urls]
 Homepage = "https://github.com/unifi2netbox/netbox-unifi-sync"

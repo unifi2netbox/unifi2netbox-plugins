@@ -4,6 +4,38 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-02-26
+
+### Fixed — **NetBox plugin entry point added to wheel**
+
+The package was missing the `[project.entry-points."netbox.plugins"]` declaration
+in `pyproject.toml`.  Without it the built wheel contained no `entry_points.txt`,
+so package-manager based plugin discovery (the mechanism NetBox uses to locate
+plugins installed via `pip`) did not work.
+
+**Required in every NetBox plugin:**
+```toml
+[project.entry-points."netbox.plugins"]
+netbox_unifi_sync = "netbox_unifi_sync"
+```
+
+Manual installation via `PLUGINS = ["netbox_unifi_sync"]` in `configuration.py`
+continued to work, but the entry point is required for full standard compliance.
+
+### Verified — NetBox plugin standard checklist
+
+| Check | Status |
+|---|---|
+| `PluginConfig` with `name`, `verbose_name`, `version`, `author`, `base_url` | ✅ |
+| `min_version` / `max_version` (`4.2.0` – `4.99.99`) | ✅ |
+| `config = NetBoxUnifiSyncConfig` in `__init__.py` | ✅ |
+| `menu = "navigation.menu"` (relative dotted path) | ✅ |
+| `PluginMenu` / `PluginMenuItem` / `PluginMenuButton` in `navigation.py` | ✅ |
+| `app_name` set in `urls.py` | ✅ |
+| `netbox.jobs.JobRunner` + `system_job` for scheduled tasks | ✅ |
+| Migrations present and clean (0001–0004) | ✅ |
+| `[project.entry-points."netbox.plugins"]` in `pyproject.toml` | ✅ (added this release) |
+
 ## [0.2.0] - 2026-02-26
 
 ### Changed — **Architecture: Django ORM replaces pynetbox HTTP self-calls**
