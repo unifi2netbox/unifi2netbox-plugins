@@ -30,20 +30,17 @@ python manage.py migrate
 git clone https://github.com/unifi2netbox/netbox-unifi-sync.git
 cd netbox-unifi-sync
 git clone -b release https://github.com/netbox-community/netbox-docker.git .netbox-docker
-cp deploy/netbox-docker/docker-compose.override.yml .netbox-docker/docker-compose.override.yml
 cp deploy/netbox-docker/configuration/plugins.py .netbox-docker/configuration/plugins.py
+echo "netbox-unifi-sync" >> .netbox-docker/local_requirements.txt
 ```
 
-Set plugin path in `.netbox-docker/.env.plugin`:
-
-```bash
-UNIFI2NETBOX_PLUGIN_PATH=/absolute/path/to/netbox-unifi-sync
-```
-
-Start stack:
+Build and start:
 
 ```bash
 cd .netbox-docker
+docker compose build netbox netbox-worker
 docker compose up -d
 docker compose exec netbox /opt/netbox/netbox/manage.py migrate
 ```
+
+For editable dev mode instead, use `deploy/netbox-docker/docker-compose.override.yml`.

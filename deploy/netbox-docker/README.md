@@ -10,7 +10,27 @@ cd netbox-unifi-sync
 git clone -b release https://github.com/netbox-community/netbox-docker.git .netbox-docker
 ```
 
-## 2) Copy override + plugin config
+## 2) Recommended: install via `local_requirements.txt`
+
+Add package pin and plugin config:
+
+```bash
+echo "netbox-unifi-sync" >> .netbox-docker/local_requirements.txt
+cp deploy/netbox-docker/configuration/plugins.py .netbox-docker/configuration/plugins.py
+```
+
+Build and start:
+
+```bash
+cd .netbox-docker
+docker compose build netbox netbox-worker
+docker compose up -d
+docker compose ps
+```
+
+## 3) Alternative dev mode: editable mount install
+
+Use this when testing local code changes live (without rebuilding image):
 
 ```bash
 cp deploy/netbox-docker/docker-compose.override.yml .netbox-docker/docker-compose.override.yml
@@ -19,7 +39,7 @@ cp deploy/netbox-docker/configuration/plugins.py .netbox-docker/configuration/pl
 
 `plugins.py` is imported by NetBox runtime and enables `netbox_unifi_sync`.
 
-## 3) Configure plugin path env
+## 4) Configure plugin path env
 
 ```bash
 cp deploy/netbox-docker/env.netbox-plugin.example .netbox-docker/.env.plugin
@@ -40,7 +60,7 @@ set +a
 cat .netbox-docker/.env.plugin >> .netbox-docker/env/netbox.env
 ```
 
-## 4) Start stack
+## 5) Start stack
 
 ```bash
 cd .netbox-docker
@@ -49,19 +69,19 @@ docker compose up -d
 docker compose ps
 ```
 
-## 5) Run migrations
+## 6) Run migrations
 
 ```bash
 docker compose exec netbox /opt/netbox/netbox/manage.py migrate
 ```
 
-## 6) Create superuser
+## 7) Create superuser
 
 ```bash
 docker compose exec netbox /opt/netbox/netbox/manage.py createsuperuser
 ```
 
-## 7) Validate plugin
+## 8) Validate plugin
 
 - Open `http://localhost:8000`
 - Login as superuser
@@ -77,7 +97,8 @@ docker compose exec netbox /opt/netbox/netbox/manage.py netbox_unifi_sync_run --
 
 ## Notes
 
-- Both `netbox` and `netbox-worker` install plugin via editable mode at container startup.
+- In recommended mode, plugin is installed from `local_requirements.txt` during image build.
+- In dev mode, both `netbox` and `netbox-worker` install plugin via editable mode at container startup.
 - Startup install is guarded: if `UNIFI2NETBOX_PLUGIN_PATH` does not point to a Python project (`pyproject.toml` or `setup.py`), installation is skipped instead of crashing NetBox startup.
 - If plugin code changes, restart both services:
 

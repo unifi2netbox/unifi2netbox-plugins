@@ -20,6 +20,12 @@ pip install netbox-unifi-sync
 
 PyPI project page: <https://pypi.org/project/netbox-unifi-sync/>
 
+For `netbox-docker`, add the package to `local_requirements.txt` before build:
+
+```bash
+echo "netbox-unifi-sync" >> local_requirements.txt
+```
+
 ### 2. Enable plugin in NetBox
 
 ```python

@@ -68,14 +68,31 @@ cd netbox-unifi-sync
 git clone -b release https://github.com/netbox-community/netbox-docker.git .netbox-docker
 ```
 
-### 2. Add docker override + plugin loader
+### 2. (Recommended) Install via `local_requirements.txt`
+
+Add package pin in `netbox-docker` root:
+
+```bash
+echo "netbox-unifi-sync" >> .netbox-docker/local_requirements.txt
+cp deploy/netbox-docker/configuration/plugins.py .netbox-docker/configuration/plugins.py
+```
+
+Build and start:
+
+```bash
+cd .netbox-docker
+docker compose build netbox netbox-worker
+docker compose up -d
+```
+
+### 3. (Development) Editable mount install with override
 
 ```bash
 cp deploy/netbox-docker/docker-compose.override.yml .netbox-docker/docker-compose.override.yml
 cp deploy/netbox-docker/configuration/plugins.py .netbox-docker/configuration/plugins.py
 ```
 
-### 3. Configure plugin mount path env
+### 4. Configure plugin mount path env
 
 ```bash
 cp deploy/netbox-docker/env.netbox-plugin.example .netbox-docker/.env.plugin
@@ -83,7 +100,7 @@ cp deploy/netbox-docker/env.netbox-plugin.example .netbox-docker/.env.plugin
 
 Set `UNIFI2NETBOX_PLUGIN_PATH` in `.netbox-docker/.env.plugin` to the absolute path of this repository.
 
-### 4. Export env to netbox-docker
+### 5. Export env to netbox-docker
 
 ```bash
 set -a
@@ -92,7 +109,7 @@ set +a
 cat .netbox-docker/.env.plugin >> .netbox-docker/env/netbox.env
 ```
 
-### 5. Start stack
+### 6. Start stack
 
 ```bash
 cd .netbox-docker
@@ -102,13 +119,13 @@ docker compose up -d
 
 The override installs plugin into both `netbox` and `netbox-worker` containers using editable install.
 
-### 6. Run migrations
+### 7. Run migrations
 
 ```bash
 docker compose exec netbox /opt/netbox/netbox/manage.py migrate
 ```
 
-### 7. Validate
+### 8. Validate
 
 ```bash
 docker compose exec netbox /opt/netbox/netbox/manage.py netbox_unifi_sync_run --dry-run --json
