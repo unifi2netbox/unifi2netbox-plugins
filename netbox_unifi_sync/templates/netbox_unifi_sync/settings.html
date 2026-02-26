@@ -3,14 +3,559 @@
 {% block title %}UniFi Sync Settings{% endblock %}
 
 {% block content %}
-<div class="card">
-  <div class="card-header"><strong>Global Settings</strong></div>
+
+{# ── helper macros ──────────────────────────────────────────────────────── #}
+{# Render a standard (non-boolean) form field                                #}
+{% macro field(f) %}
+<div class="mb-3">
+  <label class="form-label fw-semibold" for="{{ f.id_for_label }}">{{ f.label }}</label>
+  {{ f }}
+  {% if f.help_text %}<div class="form-text text-muted">{{ f.help_text }}</div>{% endif %}
+  {% for e in f.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+</div>
+{% endmacro %}
+
+{# Render a single checkbox field                                            #}
+{% macro checkbox(f) %}
+<div class="form-check mb-2">
+  {{ f }}
+  <label class="form-check-label" for="{{ f.id_for_label }}">{{ f.label }}</label>
+  {% if f.help_text %}<div class="form-text text-muted">{{ f.help_text }}</div>{% endif %}
+  {% for e in f.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+</div>
+{% endmacro %}
+
+{# NOTE: Django templates do not support macros — we render fields inline.   #}
+
+<form method="post" novalidate>
+{% csrf_token %}
+
+{# ══════════════════════════════════════════════════════════════════════════ #}
+{# 1 · GENERAL                                                               #}
+{# ══════════════════════════════════════════════════════════════════════════ #}
+<div class="card mb-3">
+  <div class="card-header"><strong>General</strong></div>
   <div class="card-body">
-    <form method="post">
-      {% csrf_token %}
-      {{ form.as_p }}
-      <button type="submit" class="btn btn-primary">Save</button>
-    </form>
+
+    {# enabled #}
+    <div class="form-check mb-3">
+      {{ form.enabled }}
+      <label class="form-check-label fw-semibold" for="{{ form.enabled.id_for_label }}">{{ form.enabled.label }}</label>
+      {% if form.enabled.help_text %}<div class="form-text text-muted">{{ form.enabled.help_text }}</div>{% endif %}
+      {% for e in form.enabled.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+    </div>
+
+    {# tenant_name #}
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="{{ form.tenant_name.id_for_label }}">{{ form.tenant_name.label }}</label>
+      {{ form.tenant_name }}
+      {% if form.tenant_name.help_text %}<div class="form-text text-muted">{{ form.tenant_name.help_text }}</div>{% endif %}
+      {% for e in form.tenant_name.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+    </div>
+
+    {# default_site #}
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="{{ form.default_site.id_for_label }}">{{ form.default_site.label }}</label>
+      {{ form.default_site }}
+      {% if form.default_site.help_text %}<div class="form-text text-muted">{{ form.default_site.help_text }}</div>{% endif %}
+      {% for e in form.default_site.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+    </div>
+
   </div>
 </div>
+
+{# ══════════════════════════════════════════════════════════════════════════ #}
+{# 2 · DEVICE IDENTIFICATION                                                 #}
+{# ══════════════════════════════════════════════════════════════════════════ #}
+<div class="card mb-3">
+  <div class="card-header"><strong>Device Identification</strong></div>
+  <div class="card-body">
+
+    {# serial_mode #}
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="{{ form.serial_mode.id_for_label }}">{{ form.serial_mode.label }}</label>
+      {{ form.serial_mode }}
+      {% if form.serial_mode.help_text %}<div class="form-text text-muted">{{ form.serial_mode.help_text }}</div>{% endif %}
+      {% for e in form.serial_mode.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+    </div>
+
+    {# netbox_device_status #}
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="{{ form.netbox_device_status.id_for_label }}">{{ form.netbox_device_status.label }}</label>
+      {{ form.netbox_device_status }}
+      {% if form.netbox_device_status.help_text %}<div class="form-text text-muted">{{ form.netbox_device_status.help_text }}</div>{% endif %}
+      {% for e in form.netbox_device_status.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+    </div>
+
+    {# netbox_roles_text #}
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="{{ form.netbox_roles_text.id_for_label }}">{{ form.netbox_roles_text.label }}</label>
+      {{ form.netbox_roles_text }}
+      {% if form.netbox_roles_text.help_text %}<div class="form-text text-muted">{{ form.netbox_roles_text.help_text }}</div>{% endif %}
+      {% for e in form.netbox_roles_text.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+    </div>
+
+  </div>
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════════ #}
+{# 3 · TAGS & ASSET TAGS                                                     #}
+{# ══════════════════════════════════════════════════════════════════════════ #}
+<div class="card mb-3">
+  <div class="card-header"><strong>Tags &amp; Asset Tags</strong></div>
+  <div class="card-body">
+
+    {# tag_strategy #}
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="{{ form.tag_strategy.id_for_label }}">{{ form.tag_strategy.label }}</label>
+      {{ form.tag_strategy }}
+      {% if form.tag_strategy.help_text %}<div class="form-text text-muted">{{ form.tag_strategy.help_text }}</div>{% endif %}
+      {% for e in form.tag_strategy.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+    </div>
+
+    {# default_tags_text #}
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="{{ form.default_tags_text.id_for_label }}">{{ form.default_tags_text.label }}</label>
+      {{ form.default_tags_text }}
+      {% if form.default_tags_text.help_text %}<div class="form-text text-muted">{{ form.default_tags_text.help_text }}</div>{% endif %}
+      {% for e in form.default_tags_text.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+    </div>
+
+    {# asset_tag_enabled #}
+    <div class="form-check mb-2">
+      {{ form.asset_tag_enabled }}
+      <label class="form-check-label" for="{{ form.asset_tag_enabled.id_for_label }}">{{ form.asset_tag_enabled.label }}</label>
+      {% for e in form.asset_tag_enabled.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+    </div>
+
+    {# asset_tag_patterns_text #}
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="{{ form.asset_tag_patterns_text.id_for_label }}">{{ form.asset_tag_patterns_text.label }}</label>
+      {{ form.asset_tag_patterns_text }}
+      {% if form.asset_tag_patterns_text.help_text %}<div class="form-text text-muted">{{ form.asset_tag_patterns_text.help_text }}</div>{% endif %}
+      {% for e in form.asset_tag_patterns_text.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+    </div>
+
+    {# asset_tag_uppercase #}
+    <div class="form-check mb-2">
+      {{ form.asset_tag_uppercase }}
+      <label class="form-check-label" for="{{ form.asset_tag_uppercase.id_for_label }}">{{ form.asset_tag_uppercase.label }}</label>
+      {% if form.asset_tag_uppercase.help_text %}<div class="form-text text-muted">{{ form.asset_tag_uppercase.help_text }}</div>{% endif %}
+      {% for e in form.asset_tag_uppercase.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+    </div>
+
+  </div>
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════════ #}
+{# 4 · SYNC TOGGLES                                                          #}
+{# ══════════════════════════════════════════════════════════════════════════ #}
+<div class="card mb-3">
+  <div class="card-header"><strong>Sync Toggles</strong></div>
+  <div class="card-body">
+    <p class="text-muted small mb-3">Choose which UniFi data types are synchronised to NetBox.</p>
+    <div class="row row-cols-1 row-cols-md-2 g-2">
+
+      <div class="col">
+        <div class="form-check">
+          {{ form.sync_interfaces }}
+          <label class="form-check-label" for="{{ form.sync_interfaces.id_for_label }}">Sync interfaces</label>
+          {% for e in form.sync_interfaces.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="form-check">
+          {{ form.sync_vlans }}
+          <label class="form-check-label" for="{{ form.sync_vlans.id_for_label }}">Sync VLANs</label>
+          {% for e in form.sync_vlans.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="form-check">
+          {{ form.sync_wlans }}
+          <label class="form-check-label" for="{{ form.sync_wlans.id_for_label }}">Sync WLANs</label>
+          {% for e in form.sync_wlans.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="form-check">
+          {{ form.sync_cables }}
+          <label class="form-check-label" for="{{ form.sync_cables.id_for_label }}">Sync uplink cables</label>
+          {% for e in form.sync_cables.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="form-check">
+          {{ form.sync_stale_cleanup }}
+          <label class="form-check-label" for="{{ form.sync_stale_cleanup.id_for_label }}">{{ form.sync_stale_cleanup.label }}</label>
+          {% if form.sync_stale_cleanup.help_text %}<div class="form-text text-muted">{{ form.sync_stale_cleanup.help_text }}</div>{% endif %}
+          {% for e in form.sync_stale_cleanup.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="form-check">
+          {{ form.sync_prefixes }}
+          <label class="form-check-label" for="{{ form.sync_prefixes.id_for_label }}">{{ form.sync_prefixes.label }}</label>
+          {% if form.sync_prefixes.help_text %}<div class="form-text text-muted">{{ form.sync_prefixes.help_text }}</div>{% endif %}
+          {% for e in form.sync_prefixes.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════════ #}
+{# 5 · VRF / IP ROUTING                                                      #}
+{# ══════════════════════════════════════════════════════════════════════════ #}
+<div class="card mb-3">
+  <div class="card-header"><strong>VRF / IP Routing</strong></div>
+  <div class="card-body">
+
+    <div class="row">
+      <div class="col-md-6">
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="{{ form.vrf_mode.id_for_label }}">{{ form.vrf_mode.label }}</label>
+          {{ form.vrf_mode }}
+          {% if form.vrf_mode.help_text %}<div class="form-text text-muted">{{ form.vrf_mode.help_text }}</div>{% endif %}
+          {% for e in form.vrf_mode.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="{{ form.default_vrf_name.id_for_label }}">{{ form.default_vrf_name.label }}</label>
+          {{ form.default_vrf_name }}
+          {% if form.default_vrf_name.help_text %}<div class="form-text text-muted">{{ form.default_vrf_name.help_text }}</div>{% endif %}
+          {% for e in form.default_vrf_name.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-6">
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="{{ form.default_gateway.id_for_label }}">{{ form.default_gateway.label }}</label>
+          {{ form.default_gateway }}
+          {% if form.default_gateway.help_text %}<div class="form-text text-muted">{{ form.default_gateway.help_text }}</div>{% endif %}
+          {% for e in form.default_gateway.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="{{ form.default_dns.id_for_label }}">{{ form.default_dns.label }}</label>
+          {{ form.default_dns }}
+          {% if form.default_dns.help_text %}<div class="form-text text-muted">{{ form.default_dns.help_text }}</div>{% endif %}
+          {% for e in form.default_dns.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════════ #}
+{# 6 · DHCP / IPAM                                                           #}
+{# ══════════════════════════════════════════════════════════════════════════ #}
+<div class="card mb-3">
+  <div class="card-header"><strong>DHCP / IPAM</strong></div>
+  <div class="card-body">
+
+    <div class="row row-cols-1 row-cols-md-2 g-2 mb-3">
+      <div class="col">
+        <div class="form-check">
+          {{ form.dhcp_auto_discover }}
+          <label class="form-check-label" for="{{ form.dhcp_auto_discover.id_for_label }}">{{ form.dhcp_auto_discover.label }}</label>
+          {% if form.dhcp_auto_discover.help_text %}<div class="form-text text-muted">{{ form.dhcp_auto_discover.help_text }}</div>{% endif %}
+          {% for e in form.dhcp_auto_discover.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+      <div class="col">
+        <div class="form-check">
+          {{ form.sync_dhcp_ranges }}
+          <label class="form-check-label" for="{{ form.sync_dhcp_ranges.id_for_label }}">{{ form.sync_dhcp_ranges.label }}</label>
+          {% if form.sync_dhcp_ranges.help_text %}<div class="form-text text-muted">{{ form.sync_dhcp_ranges.help_text }}</div>{% endif %}
+          {% for e in form.sync_dhcp_ranges.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+      <div class="col">
+        <div class="form-check">
+          {{ form.dhcp_writeback_enabled }}
+          <label class="form-check-label" for="{{ form.dhcp_writeback_enabled.id_for_label }}">{{ form.dhcp_writeback_enabled.label }}</label>
+          {% if form.dhcp_writeback_enabled.help_text %}<div class="form-text text-muted">{{ form.dhcp_writeback_enabled.help_text }}</div>{% endif %}
+          {% for e in form.dhcp_writeback_enabled.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+    </div>
+
+    {# dhcp_ranges textarea #}
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="{{ form.dhcp_ranges.id_for_label }}">{{ form.dhcp_ranges.label }}</label>
+      {{ form.dhcp_ranges }}
+      {% if form.dhcp_ranges.help_text %}<div class="form-text text-muted">{{ form.dhcp_ranges.help_text }}</div>{% endif %}
+      {% for e in form.dhcp_ranges.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+    </div>
+
+  </div>
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════════ #}
+{# 7 · CLEANUP                                                               #}
+{# ══════════════════════════════════════════════════════════════════════════ #}
+<div class="card mb-3">
+  <div class="card-header"><strong>Cleanup</strong></div>
+  <div class="card-body">
+
+    <div class="form-check mb-3">
+      {{ form.cleanup_enabled }}
+      <label class="form-check-label fw-semibold" for="{{ form.cleanup_enabled.id_for_label }}">{{ form.cleanup_enabled.label }}</label>
+      {% if form.cleanup_enabled.help_text %}<div class="form-text text-muted">{{ form.cleanup_enabled.help_text }}</div>{% endif %}
+      {% for e in form.cleanup_enabled.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+    </div>
+
+    <div class="mb-3" style="max-width: 200px;">
+      <label class="form-label fw-semibold" for="{{ form.cleanup_grace_days.id_for_label }}">{{ form.cleanup_grace_days.label }}</label>
+      {{ form.cleanup_grace_days }}
+      {% if form.cleanup_grace_days.help_text %}<div class="form-text text-muted">{{ form.cleanup_grace_days.help_text }}</div>{% endif %}
+      {% for e in form.cleanup_grace_days.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+    </div>
+
+  </div>
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════════ #}
+{# 8 · SCHEDULING                                                            #}
+{# ══════════════════════════════════════════════════════════════════════════ #}
+<div class="card mb-3">
+  <div class="card-header"><strong>Scheduling</strong></div>
+  <div class="card-body">
+
+    <div class="form-check mb-3">
+      {{ form.schedule_enabled }}
+      <label class="form-check-label fw-semibold" for="{{ form.schedule_enabled.id_for_label }}">{{ form.schedule_enabled.label }}</label>
+      {% if form.schedule_enabled.help_text %}<div class="form-text text-muted">{{ form.schedule_enabled.help_text }}</div>{% endif %}
+      {% for e in form.schedule_enabled.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+    </div>
+
+    <div class="row">
+      <div class="col-md-4">
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="{{ form.sync_interval_minutes.id_for_label }}">{{ form.sync_interval_minutes.label }}</label>
+          {{ form.sync_interval_minutes }}
+          {% if form.sync_interval_minutes.help_text %}<div class="form-text text-muted">{{ form.sync_interval_minutes.help_text }}</div>{% endif %}
+          {% for e in form.sync_interval_minutes.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="form-check mb-2">
+      {{ form.dry_run_default }}
+      <label class="form-check-label" for="{{ form.dry_run_default.id_for_label }}">{{ form.dry_run_default.label }}</label>
+      {% if form.dry_run_default.help_text %}<div class="form-text text-muted">{{ form.dry_run_default.help_text }}</div>{% endif %}
+      {% for e in form.dry_run_default.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+    </div>
+
+  </div>
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════════ #}
+{# 9 · HTTP & SSL  (collapsed by default)                                    #}
+{# ══════════════════════════════════════════════════════════════════════════ #}
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <strong>HTTP &amp; SSL</strong>
+    <button class="btn btn-sm btn-outline-secondary" type="button"
+            data-bs-toggle="collapse" data-bs-target="#section-http" aria-expanded="false">
+      Show / hide
+    </button>
+  </div>
+  <div class="collapse" id="section-http">
+    <div class="card-body">
+
+      <div class="form-check mb-3">
+        {{ form.verify_ssl_default }}
+        <label class="form-check-label" for="{{ form.verify_ssl_default.id_for_label }}">{{ form.verify_ssl_default.label }}</label>
+        {% if form.verify_ssl_default.help_text %}<div class="form-text text-muted">{{ form.verify_ssl_default.help_text }}</div>{% endif %}
+        {% for e in form.verify_ssl_default.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+      </div>
+
+      <div class="row">
+        <div class="col-md-3">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.request_timeout.id_for_label }}">{{ form.request_timeout.label }}</label>
+            {{ form.request_timeout }}
+            {% if form.request_timeout.help_text %}<div class="form-text text-muted">{{ form.request_timeout.help_text }}</div>{% endif %}
+            {% for e in form.request_timeout.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.http_retries.id_for_label }}">{{ form.http_retries.label }}</label>
+            {{ form.http_retries }}
+            {% if form.http_retries.help_text %}<div class="form-text text-muted">{{ form.http_retries.help_text }}</div>{% endif %}
+            {% for e in form.http_retries.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.retry_backoff_base.id_for_label }}">{{ form.retry_backoff_base.label }}</label>
+            {{ form.retry_backoff_base }}
+            {% if form.retry_backoff_base.help_text %}<div class="form-text text-muted">{{ form.retry_backoff_base.help_text }}</div>{% endif %}
+            {% for e in form.retry_backoff_base.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.retry_backoff_max.id_for_label }}">{{ form.retry_backoff_max.label }}</label>
+            {{ form.retry_backoff_max }}
+            {% if form.retry_backoff_max.help_text %}<div class="form-text text-muted">{{ form.retry_backoff_max.help_text }}</div>{% endif %}
+            {% for e in form.retry_backoff_max.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════════ #}
+{# 10 · CONCURRENCY  (collapsed by default)                                  #}
+{# ══════════════════════════════════════════════════════════════════════════ #}
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <strong>Concurrency</strong>
+    <button class="btn btn-sm btn-outline-secondary" type="button"
+            data-bs-toggle="collapse" data-bs-target="#section-concurrency" aria-expanded="false">
+      Show / hide
+    </button>
+  </div>
+  <div class="collapse" id="section-concurrency">
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-3">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.max_controller_threads.id_for_label }}">{{ form.max_controller_threads.label }}</label>
+            {{ form.max_controller_threads }}
+            {% if form.max_controller_threads.help_text %}<div class="form-text text-muted">{{ form.max_controller_threads.help_text }}</div>{% endif %}
+            {% for e in form.max_controller_threads.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.max_site_threads.id_for_label }}">{{ form.max_site_threads.label }}</label>
+            {{ form.max_site_threads }}
+            {% if form.max_site_threads.help_text %}<div class="form-text text-muted">{{ form.max_site_threads.help_text }}</div>{% endif %}
+            {% for e in form.max_site_threads.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.max_device_threads.id_for_label }}">{{ form.max_device_threads.label }}</label>
+            {{ form.max_device_threads }}
+            {% if form.max_device_threads.help_text %}<div class="form-text text-muted">{{ form.max_device_threads.help_text }}</div>{% endif %}
+            {% for e in form.max_device_threads.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.rate_limit_per_second.id_for_label }}">{{ form.rate_limit_per_second.label }}</label>
+            {{ form.rate_limit_per_second }}
+            {% if form.rate_limit_per_second.help_text %}<div class="form-text text-muted">{{ form.rate_limit_per_second.help_text }}</div>{% endif %}
+            {% for e in form.rate_limit_per_second.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════════ #}
+{# 11 · DEVICE SPECS CACHE  (collapsed by default)                           #}
+{# ══════════════════════════════════════════════════════════════════════════ #}
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <strong>Device Specs Cache</strong>
+    <button class="btn btn-sm btn-outline-secondary" type="button"
+            data-bs-toggle="collapse" data-bs-target="#section-specs" aria-expanded="false">
+      Show / hide
+    </button>
+  </div>
+  <div class="collapse" id="section-specs">
+    <div class="card-body">
+
+      <div class="row row-cols-1 row-cols-md-2 g-2 mb-3">
+        <div class="col">
+          <div class="form-check">
+            {{ form.specs_auto_refresh }}
+            <label class="form-check-label" for="{{ form.specs_auto_refresh.id_for_label }}">{{ form.specs_auto_refresh.label }}</label>
+            {% if form.specs_auto_refresh.help_text %}<div class="form-text text-muted">{{ form.specs_auto_refresh.help_text }}</div>{% endif %}
+            {% for e in form.specs_auto_refresh.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+        <div class="col">
+          <div class="form-check">
+            {{ form.specs_include_store }}
+            <label class="form-check-label" for="{{ form.specs_include_store.id_for_label }}">{{ form.specs_include_store.label }}</label>
+            {% if form.specs_include_store.help_text %}<div class="form-text text-muted">{{ form.specs_include_store.help_text }}</div>{% endif %}
+            {% for e in form.specs_include_store.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+        <div class="col">
+          <div class="form-check">
+            {{ form.specs_write_cache }}
+            <label class="form-check-label" for="{{ form.specs_write_cache.id_for_label }}">{{ form.specs_write_cache.label }}</label>
+            {% if form.specs_write_cache.help_text %}<div class="form-text text-muted">{{ form.specs_write_cache.help_text }}</div>{% endif %}
+            {% for e in form.specs_write_cache.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-md-3">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.specs_refresh_timeout.id_for_label }}">{{ form.specs_refresh_timeout.label }}</label>
+            {{ form.specs_refresh_timeout }}
+            {% if form.specs_refresh_timeout.help_text %}<div class="form-text text-muted">{{ form.specs_refresh_timeout.help_text }}</div>{% endif %}
+            {% for e in form.specs_refresh_timeout.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.specs_store_timeout.id_for_label }}">{{ form.specs_store_timeout.label }}</label>
+            {{ form.specs_store_timeout }}
+            {% if form.specs_store_timeout.help_text %}<div class="form-text text-muted">{{ form.specs_store_timeout.help_text }}</div>{% endif %}
+            {% for e in form.specs_store_timeout.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.specs_store_max_workers.id_for_label }}">{{ form.specs_store_max_workers.label }}</label>
+            {{ form.specs_store_max_workers }}
+            {% if form.specs_store_max_workers.help_text %}<div class="form-text text-muted">{{ form.specs_store_max_workers.help_text }}</div>{% endif %}
+            {% for e in form.specs_store_max_workers.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{# ── non-field errors ───────────────────────────────────────────────────── #}
+{% if form.non_field_errors %}
+<div class="alert alert-danger">
+  {% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}
+</div>
+{% endif %}
+
+{# ── save button ────────────────────────────────────────────────────────── #}
+<button type="submit" class="btn btn-primary btn-lg w-100">
+  <i class="mdi mdi-content-save me-1"></i> Save Settings
+</button>
+
+</form>
 {% endblock %}
