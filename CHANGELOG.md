@@ -29,6 +29,17 @@ All notable changes to this project are documented in this file.
 ### Removed
 - Raw auto-generated git-log changelog format replaced by structured release notes.
 
+## [0.1.9] - 2026-02-26
+
+### Fixed
+- JSON API endpoints (`api/status/`, `api/controllers/<pk>/test/`) were defined but
+  not reachable — `api/urls.py` was never included in the plugin's `urls.py`.
+  Endpoints are now mounted at `/plugins/unifi-sync/api/` and return JSON responses.
+
+### Changed
+- `api/urls.py` `app_name` corrected from `"netbox_unifi_sync-api"` (dash breaks Django
+  namespace resolution) to `"netbox_unifi_sync_api"`.
+
 ## [0.1.8] - 2026-02-26
 
 ### Fixed
