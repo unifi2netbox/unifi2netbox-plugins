@@ -21,13 +21,16 @@ class JSONTextAreaField(forms.CharField):
             raise forms.ValidationError(f"Invalid JSON: {exc}") from exc
 
 
+# NetBox 4.x DeviceStatusChoices (dcim/choices.py) — value used directly as-is
+# by the sync engine via NETBOX_DEVICE_STATUS env var.
 _DEVICE_STATUS_CHOICES = [
+    ("offline", "Offline"),
+    ("active", "Active"),
     ("planned", "Planned"),
     ("staged", "Staged"),
-    ("active", "Active"),
-    ("decommissioning", "Decommissioning"),
+    ("failed", "Failed"),
     ("inventory", "Inventory"),
-    ("offline", "Offline"),
+    ("decommissioning", "Decommissioning"),
 ]
 
 

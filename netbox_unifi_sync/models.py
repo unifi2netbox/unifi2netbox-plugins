@@ -142,10 +142,23 @@ class GlobalSyncSettings(models.Model):
     def __str__(self) -> str:
         return "Global UniFi sync settings"
 
+    # NetBox 4.x DeviceStatusChoices — keep in sync with forms._DEVICE_STATUS_CHOICES
+    VALID_DEVICE_STATUSES = frozenset({
+        "offline", "active", "planned", "staged", "failed", "inventory", "decommissioning",
+    })
+
     def clean(self):
         errors = {}
         if not self.tenant_name.strip():
             errors["tenant_name"] = "tenant_name is required."
+        status = (self.netbox_device_status or "planned").strip().lower()
+        if status not in self.VALID_DEVICE_STATUSES:
+            errors["netbox_device_status"] = (
+                f"Invalid status '{status}'. "
+                f"Valid values: {', '.join(sorted(self.VALID_DEVICE_STATUSES))}."
+            )
+        else:
+            self.netbox_device_status = status
         if self.sync_interval_minutes < 1:
             errors["sync_interval_minutes"] = "sync_interval_minutes must be >= 1."
         if self.retry_backoff_base <= 0:

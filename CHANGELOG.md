@@ -4,6 +4,27 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-02-26
+
+### Fixed — **Complete and validated device status dropdown**
+
+`netbox_device_status` now uses the full set of NetBox 4.x `DeviceStatusChoices`
+slugs in the correct order, including the previously missing `failed` value.
+
+`GlobalSyncSettings.clean()` now validates the stored value against the known
+set and normalises it to lowercase before saving, so manually entered values
+(e.g. via shell or PLUGINS_CONFIG) are also validated.
+
+**Valid values:** `offline`, `active`, `planned`, `staged`, `failed`,
+`inventory`, `decommissioning`
+
+### Files changed
+
+| File | Change |
+|---|---|
+| `netbox_unifi_sync/forms.py` | Added `failed`; reordered choices to match NetBox UI order |
+| `netbox_unifi_sync/models.py` | Added `VALID_DEVICE_STATUSES` + validation in `clean()` |
+
 ## [0.2.3] - 2026-02-26
 
 ### Added — **Feature parity with standalone unifi2netbox**
