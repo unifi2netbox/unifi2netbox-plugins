@@ -31,6 +31,28 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Choice-field value wrapper
+# ---------------------------------------------------------------------------
+
+class _ChoiceValue(str):
+    """str subclass that exposes .value and .label for pynetbox API compatibility.
+
+    Django ORM returns choice field values as plain strings (e.g. "1000base-t").
+    pynetbox REST responses return objects with .value and .label attributes.
+    This subclass is a drop-in str replacement, so existing string comparisons
+    (==, ``in``, ``startswith``) continue to work unchanged.
+    """
+
+    @property
+    def value(self):
+        return str(self)
+
+    @property
+    def label(self):
+        return str(self)
+
+
+# ---------------------------------------------------------------------------
 # Thin wrapper around a Django model instance
 # ---------------------------------------------------------------------------
 
@@ -63,9 +85,13 @@ class _OrmObject:
             if value is not None and not isinstance(value, str):
                 try:
                     # ContentType has app_label + model attributes
-                    return f"{value.app_label}.{value.model}"
+                    return _ChoiceValue(f"{value.app_label}.{value.model}")
                 except AttributeError:
-                    return str(value)
+                    return _ChoiceValue(str(value))
+        # Wrap plain strings in _ChoiceValue so callers can use .value / .label
+        # (pynetbox returns objects with those attrs; Django returns plain strings).
+        if isinstance(value, str):
+            return _ChoiceValue(value)
         return value
 
     # Fields whose "name" accessor is a GenericForeignKey; the real DB column
@@ -215,7 +241,18 @@ class _Endpoint:
                 translated[key] = value
         return translated
 
-    def get(self, **kwargs) -> "_OrmObject | None":
+    def get(self, *args, **kwargs) -> "_OrmObject | None":
+        # Accept a single positional PK argument (pynetbox API compat):
+        #   nb.dcim.cables.get(42)  →  Cable.objects.get(pk=42)
+        if args:
+            pk = args[0]
+            try:
+                return _wrap(self._qs().get(pk=pk))
+            except self._model.DoesNotExist:
+                return None
+            except Exception as exc:
+                logger.debug("ORM .get(pk=%s) error for %s: %s", pk, self._model.__name__, exc)
+                return None
         qs = self._qs()
         translated = self._translate_kwargs(kwargs)
         try:
