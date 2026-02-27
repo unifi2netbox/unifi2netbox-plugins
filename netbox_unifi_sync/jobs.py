@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Any
 
 from core.exceptions import JobFailed
 from django.contrib.auth import get_user_model
+from netbox.context import current_request
 from netbox.jobs import JobRunner, system_job
 
 from .models import SyncRun
@@ -18,6 +20,22 @@ from .services.orchestrator import (
 )
 
 logger = logging.getLogger("netbox.plugins.netbox_unifi_sync.jobs")
+
+
+class _SyntheticRequest:
+    """Minimal request-like object for NetBox change-logging context."""
+    def __init__(self, user, request_id=None):
+        self.user = user
+        self.id = str(request_id or uuid.uuid4())
+
+
+def _get_fallback_user():
+    """Return the first active superuser, or None if unavailable."""
+    try:
+        User = get_user_model()
+        return User.objects.filter(is_superuser=True, is_active=True).order_by('pk').first()
+    except Exception:
+        return None
 
 
 def _resolve_user(user_id: Any):
@@ -41,6 +59,9 @@ def _run_sync_job(*, dry_run: bool, cleanup_requested: bool, requested_by_id: in
     )
     run.mark_running()
 
+    # Set change-logging context so NetBox records ObjectChange entries.
+    actor = _resolve_user(requested_by_id) or _get_fallback_user()
+    _token = current_request.set(_SyntheticRequest(user=actor))
     try:
         result = run_sync(
             dry_run=bool(dry_run),
@@ -58,6 +79,8 @@ def _run_sync_job(*, dry_run: bool, cleanup_requested: bool, requested_by_id: in
             details={"dry_run": dry_run, "cleanup_requested": cleanup_requested, "trigger": trigger},
         )
         raise
+    finally:
+        current_request.reset(_token)
 
     summary = (
         f"mode={result.get('mode')} controllers={result.get('controllers', 0)} "

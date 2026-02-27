@@ -156,6 +156,13 @@ class _OrmObject:
 
     def save(self, update_fields=None):
         instance = object.__getattribute__(self, "_instance")
+        # Call snapshot() before saving existing objects so NetBox change log
+        # records the pre-change state (prechange_data) correctly.
+        if instance.pk and hasattr(instance, 'snapshot'):
+            try:
+                instance.snapshot()
+            except Exception:
+                pass
         if update_fields:
             instance.save(update_fields=update_fields)
         else:
