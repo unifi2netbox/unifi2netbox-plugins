@@ -1219,9 +1219,13 @@ def normalize_port_data(device, api_style="integration"):
 
     for port in raw_ports:
         if api_style == "integration":
-            name = port.get("name") or f"Port {port.get('portIdx', '?')}"
-            speed_mbps = port.get("maxSpeed") or port.get("speed") or 0
-            enabled = port.get("enabled", True) if "enabled" in port else port.get("up", True)
+            name = port.get("name") or f"Port {port.get('portIdx') or port.get('idx', '?')}"
+            speed_mbps = port.get("maxSpeed") or port.get("maxSpeedMbps") or port.get("speed") or port.get("speedMbps") or 0
+            enabled = (
+                port.get("enabled", True) if "enabled" in port
+                else port.get("state", "").upper() == "UP" if "state" in port
+                else port.get("up", True)
+            )
             poe = port.get("poeMode") or port.get("poe_mode")
             mac = port.get("macAddress") or port.get("mac")
             is_uplink = port.get("isUplink", False)
