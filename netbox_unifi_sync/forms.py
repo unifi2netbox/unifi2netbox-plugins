@@ -131,18 +131,17 @@ class GlobalSyncSettingsForm(forms.ModelForm):
         label="NetBox role mappings",
         help_text=(
             "One mapping per line in the format  KEY = Role name.  "
-            "Keys are the UniFi device role slugs (uppercased).  "
+            "Canonical keys: WIRELESS, LAN, GATEWAY, ROUTER, UNKNOWN.  "
             "Example: WIRELESS = Wireless AP"
         ),
         widget=forms.Textarea(attrs={
             "rows": 8,
             "placeholder": (
                 "WIRELESS = Wireless AP\n"
-                "SWITCH = Switch\n"
+                "LAN = Switch\n"
                 "ROUTER = Router\n"
-                "SECURITY = Security Appliance\n"
-                "PHONE = VoIP Phone\n"
-                "OTHER = Network Device"
+                "GATEWAY = Security Appliance\n"
+                "UNKNOWN = Network Device"
             ),
         }),
     )

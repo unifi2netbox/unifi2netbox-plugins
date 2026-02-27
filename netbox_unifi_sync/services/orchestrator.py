@@ -23,15 +23,43 @@ logger = logging.getLogger("netbox.plugins.netbox_unifi_sync.orchestrator")
 DEFAULT_ROLES = {
     "WIRELESS": "Wireless AP",
     "ROUTER": "Router",
-    "SWITCH": "Switch",
-    "SECURITY": "Security Appliance",
-    "PHONE": "VoIP Phone",
-    "OTHER": "Network Device",
+    "LAN": "Switch",
+    "GATEWAY": "Security Appliance",
+    "UNKNOWN": "Network Device",
+}
+
+# Maps legacy role keys (from old DB records or env vars) to their canonical equivalents.
+_ROLE_KEY_ALIASES: dict[str, str] = {
+    "SWITCH": "LAN",
+    "SECURITY": "GATEWAY",
+    "OTHER": "UNKNOWN",
+    "PHONE": "UNKNOWN",
 }
 
 
 class SyncConfigurationError(ValueError):
     pass
+
+
+def _migrate_role_keys(roles: dict[str, str]) -> tuple[dict[str, str], bool]:
+    """Rename legacy role keys to canonical equivalents.
+
+    Returns (migrated_dict, changed) where *changed* is True if any key was
+    renamed or dropped (e.g. a duplicate alias was collapsed).
+    The canonical key always wins when both an alias and its target are present.
+    """
+    result: dict[str, str] = {}
+    changed = False
+    for key, value in roles.items():
+        canonical = _ROLE_KEY_ALIASES.get(key, key)
+        if canonical != key:
+            changed = True
+        if canonical not in result:
+            result[canonical] = value
+        else:
+            # Canonical already present — alias is a duplicate and gets dropped.
+            changed = True
+    return result, changed
 
 
 def get_or_create_global_settings() -> GlobalSyncSettings:
@@ -46,6 +74,12 @@ def get_or_create_global_settings() -> GlobalSyncSettings:
     if not obj.netbox_roles:
         obj.netbox_roles = dict(DEFAULT_ROLES)
         obj.save(update_fields=["netbox_roles", "updated"])
+    else:
+        migrated, changed = _migrate_role_keys(obj.netbox_roles)
+        if changed:
+            logger.info("Migrating legacy role keys in GlobalSyncSettings: %s -> %s", obj.netbox_roles, migrated)
+            obj.netbox_roles = migrated
+            obj.save(update_fields=["netbox_roles", "updated"])
     return obj
 
 
@@ -96,6 +130,8 @@ def _build_override(
     role_map = {str(k).upper(): str(v) for k, v in settings.netbox_roles.items() if str(k).strip() and str(v).strip()}
     if not role_map:
         role_map = dict(DEFAULT_ROLES)
+    else:
+        role_map, _ = _migrate_role_keys(role_map)
 
     return {
         "unifi_urls": [row["runtime"].base_url for row in runtime_rows],
