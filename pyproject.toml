@@ -49,11 +49,11 @@ include-package-data = false
   "migrations/*.py",
   "management/commands/*.py",
 ]
-"unifi2netbox.services" = ["data/*.json"]
+"netbox_unifi_sync.services" = ["data/*.json"]
 
 [tool.setuptools.packages.find]
 namespaces = false
-include = ["netbox_unifi_sync*", "unifi2netbox*"]
+include = ["netbox_unifi_sync*"]
 exclude = [
   "tests*",
   "docs*",

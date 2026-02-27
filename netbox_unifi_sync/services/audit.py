@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from unifi2netbox.services.sync.log_sanitizer import redact_text
+from netbox_unifi_sync.services.sync.log_sanitizer import redact_text
 
 
 def record_event(*, action: str, status: str, actor=None, target: str = "", message: str = "", details: dict[str, Any] | None = None):

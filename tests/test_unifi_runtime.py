@@ -3,7 +3,7 @@ import json
 import os
 from unittest.mock import patch
 
-from unifi2netbox.services.unifi.unifi import Unifi
+from netbox_unifi_sync.services.unifi.unifi import Unifi
 
 
 class _FakeResponse:
@@ -110,7 +110,7 @@ def test_integration_request_retries_on_transient_status(monkeypatch):
     first = _FakeResponse(status_code=429, payload={"message": "rate limited"}, text="rate limited")
     second = _FakeResponse(status_code=200, payload={"data": [{"id": "site-1"}]})
     with patch.object(unifi.session, "request", side_effect=[first, second]) as req_mock, patch(
-        "unifi2netbox.services.unifi.unifi.time.sleep", return_value=None
+        "netbox_unifi_sync.services.unifi.unifi.time.sleep", return_value=None
     ):
         response = unifi._make_request_integration("/sites", "GET", max_retries=1)
 

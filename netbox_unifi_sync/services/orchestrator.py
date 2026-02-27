@@ -6,7 +6,7 @@ from typing import Any, Iterable
 
 from django.utils import timezone
 from netbox_unifi_sync.services.sync_service import execute_sync as legacy_execute_sync
-from unifi2netbox.services.unifi.unifi import Unifi
+from netbox_unifi_sync.services.unifi.unifi import Unifi
 
 from ..models import (
     AuthMode,

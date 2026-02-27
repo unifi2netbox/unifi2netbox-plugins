@@ -8,7 +8,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Backward-compatible alias for legacy `import main` in tests.
-sys.modules.setdefault("main", importlib.import_module("unifi2netbox.services.sync_engine"))
+sys.modules.setdefault("main", importlib.import_module("netbox_unifi_sync.services.sync_engine"))
 
 
 @pytest.fixture

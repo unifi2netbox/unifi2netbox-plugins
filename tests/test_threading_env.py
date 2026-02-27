@@ -10,7 +10,7 @@ def _import_sync_engine_with_env(env_overrides):
         [
             sys.executable,
             "-c",
-            "from unifi2netbox.services import sync_engine as m; "
+            "from netbox_unifi_sync.services import sync_engine as m; "
             "print(m.MAX_CONTROLLER_THREADS, m.MAX_SITE_THREADS, m.MAX_DEVICE_THREADS)",
         ],
         env=env,

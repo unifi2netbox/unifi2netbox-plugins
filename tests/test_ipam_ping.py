@@ -1,10 +1,10 @@
 from unittest.mock import patch
 
-from unifi2netbox.services.sync import ipam
+from netbox_unifi_sync.services.sync import ipam
 
 
 def test_ping_ip_rejects_invalid_ip_without_subprocess():
-    with patch("unifi2netbox.services.sync.ipam.subprocess.run") as run_mock:
+    with patch("netbox_unifi_sync.services.sync.ipam.subprocess.run") as run_mock:
         assert ipam.ping_ip("not-an-ip") is False
         run_mock.assert_not_called()
 
@@ -13,7 +13,7 @@ def test_ping_ip_clamps_count_and_timeout():
     class _Result:
         returncode = 1
 
-    with patch("unifi2netbox.services.sync.ipam.subprocess.run", return_value=_Result()) as run_mock:
+    with patch("netbox_unifi_sync.services.sync.ipam.subprocess.run", return_value=_Result()) as run_mock:
         assert ipam.ping_ip("192.0.2.10", count=999, timeout=0) is False
         cmd = run_mock.call_args.args[0]
         assert cmd[:2] == ["ping", "-c"]

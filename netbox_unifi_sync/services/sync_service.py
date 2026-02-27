@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from unifi2netbox.services.sync_engine import run_sync_once
+from netbox_unifi_sync.services.sync_engine import run_sync_once
 
 from ..configuration import (
     get_plugin_settings,
