@@ -73,13 +73,13 @@ def get_or_create_global_settings() -> GlobalSyncSettings:
     )
     if not obj.netbox_roles:
         obj.netbox_roles = dict(DEFAULT_ROLES)
-        obj.save(update_fields=["netbox_roles", "updated"])
+        obj.save(update_fields=["netbox_roles"])
     else:
         migrated, changed = _migrate_role_keys(obj.netbox_roles)
         if changed:
             logger.info("Migrating legacy role keys in GlobalSyncSettings: %s -> %s", obj.netbox_roles, migrated)
             obj.netbox_roles = migrated
-            obj.save(update_fields=["netbox_roles", "updated"])
+            obj.save(update_fields=["netbox_roles"])
     return obj
 
 
