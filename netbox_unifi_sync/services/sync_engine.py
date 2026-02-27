@@ -646,16 +646,22 @@ def _cable_touches_patch_port(cable_obj) -> bool:
     must never be touched by automated cable sync."""
     _PATCH_TYPES = {"dcim.frontport", "dcim.rearport"}
     try:
-        for term in list(getattr(cable_obj, "a_terminations", None) or []):
-            ot = getattr(term, "object_type", None)
-            if ot and str(ot) in _PATCH_TYPES:
-                return True
-        for term in list(getattr(cable_obj, "b_terminations", None) or []):
-            ot = getattr(term, "object_type", None)
-            if ot and str(ot) in _PATCH_TYPES:
-                return True
-    except Exception:
-        pass
+        for side_attr in ("a_terminations", "b_terminations"):
+            terms = getattr(cable_obj, side_attr, None) or []
+            # a/b_terminations returns a list of actual terminating objects
+            # (Interface, FrontPort, RearPort, …) — NOT CableTermination rows.
+            # Derive "app_label.model_name" from the Python class via _meta.
+            for term in (terms if isinstance(terms, (list, tuple)) else list(terms)):
+                meta = getattr(type(term), "_meta", None)
+                if meta:
+                    ot = f"{meta.app_label}.{meta.model_name}"
+                else:
+                    # Fallback: pynetbox-style string attribute
+                    ot = str(getattr(term, "object_type", "") or "")
+                if ot in _PATCH_TYPES:
+                    return True
+    except Exception as e:
+        logger.debug("_cable_touches_patch_port: could not inspect terminations: %s", e)
     return False
 
 
@@ -733,16 +739,16 @@ def sync_uplink_cable(nb, nb_device, device, all_nb_devices_by_mac):
         # Try to find any interface marked as uplink
         all_ifaces = list(nb.dcim.interfaces.filter(device_id=nb_device.id))
         # Filter to only cabled (ethernet/physical) interfaces — exclude wireless types
-        iface_types = [(i.name, str(i.type.value) if i.type else "none") for i in all_ifaces]
+        iface_types = [(i.name, str(i.type) if i.type else "none") for i in all_ifaces]
         logger.debug(f"Cable sync for {device_name}: all interfaces: {iface_types}")
-        wired_ifaces = [i for i in all_ifaces if i.type and i.type.value not in ("virtual", "lag") and not str(i.type.value).startswith("ieee802.11")]
+        wired_ifaces = [i for i in all_ifaces if i.type and str(i.type) not in ("virtual", "lag") and not str(i.type).startswith("ieee802.11")]
         for iface in wired_ifaces:
             if iface.description and "uplink" in iface.description.lower():
                 our_iface = iface
                 break
         # Last resort: use the last physical port (commonly uplink on switches)
         if not our_iface and wired_ifaces:
-            physical_ifaces = [i for i in wired_ifaces if i.type and i.type.value not in ("virtual", "lag")]
+            physical_ifaces = [i for i in wired_ifaces if i.type and str(i.type) not in ("virtual", "lag")]
             if physical_ifaces:
                 our_iface = physical_ifaces[-1]
         # For APs with no wired interfaces, create an eth0 interface for uplink
@@ -794,7 +800,7 @@ def sync_uplink_cable(nb, nb_device, device, all_nb_devices_by_mac):
     # Fallback: any unconnected physical port
     if not upstream_iface:
         for iface in upstream_ifaces:
-            if not iface.cable and iface.type and iface.type.value not in ("virtual", "lag"):
+            if not iface.cable and iface.type and str(iface.type) not in ("virtual", "lag"):
                 upstream_iface = iface
                 break
 
