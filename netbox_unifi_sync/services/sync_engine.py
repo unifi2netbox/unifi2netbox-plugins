@@ -1729,6 +1729,16 @@ def sync_gateway_interfaces(nb, nb_device, device, site_obj, tenant, vrf, unifi=
         logger.debug(f"No network configs for gateway {device_name}")
         return
 
+    # Deduplicate by (name, purpose) — Integration API + legacy may both return the same network
+    seen_net_keys: set = set()
+    deduped = []
+    for net in network_configs:
+        key = (net.get("name") or "", net.get("purpose") or net.get("type") or "", net.get("vlanId") or net.get("vlan") or "")
+        if key not in seen_net_keys:
+            seen_net_keys.add(key)
+            deduped.append(net)
+    network_configs = deduped
+
     primary_ip_set = False
     first_private_ip = None  # fallback: first LAN gateway IP in case device_ip is the WAN IP
 
@@ -1741,6 +1751,10 @@ def sync_gateway_interfaces(nb, nb_device, device, site_obj, tenant, vrf, unifi=
         vlan_id_raw = net.get("vlanId") or net.get("vlan") or net.get("vlan_id")
         net_name = net.get("name") or net.get("purpose") or "unknown"
         purpose = (net.get("purpose") or net.get("type") or "").lower()
+
+        # Skip VPN tunnel and remote-user networks — they are not gateway LAN/WAN interfaces
+        if purpose in ("vpn-client", "remote-user-vpn", "site-vpn", "openvpn"):
+            continue
 
         if not ip_subnet:
             continue
