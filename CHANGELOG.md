@@ -4,6 +4,219 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.3.15] - 2026-02-28
+
+### Added — **MAC address sync (NetBox 4.5 compatible)**
+
+MAC addresses from UniFi devices are now synced to NetBox interface objects.
+
+- NetBox 4.5 uses a dedicated `MACAddress` model (not `Interface.mac_address`) — implemented correctly via `get_or_create` + `primary_mac_address` OneToOneField using `queryset.update()` to bypass `Interface.clean()` validation.
+- **Legacy API controllers:** per-port MAC address from `port_table` is set on each interface individually.
+- **Integration API controllers:** only a device-level base MAC is available; it is assigned to Port 1.
+
+### Files changed
+
+| File | Change |
+|---|---|
+| `netbox_unifi_sync/services/sync_engine.py` | New `_set_interface_mac()` helper; port loop sets per-port MAC; device-MAC fallback to Port 1 |
+
+---
+
+## [0.3.14] - 2026-02-28
+
+### Fixed — **Integration API does not support static IP configuration**
+
+`set_unifi_device_static_ip` previously attempted `PATCH /sites/{id}/devices/{id}` via the Integration API, which returns **405 Method Not Allowed**.
+
+The Integration API path is now skipped entirely; the function falls through directly to the Legacy API (`PUT /api/s/{site}/rest/device/{id}`) which supports static IP configuration.
+
+### Files changed
+
+| File | Change |
+|---|---|
+| `netbox_unifi_sync/services/sync/ipam.py` | Removed Integration API PATCH attempt; always use Legacy API for static IP |
+
+---
+
+## [0.3.13] - 2026-02-28
+
+### Fixed — **Security Appliance primary IP (WAN vs LAN) + VPN filter + dedup**
+
+Three related fixes for Security Appliance (UCG Ultra / UDM / USG) sync:
+
+**Primary IP fallback:**
+UniFi Integration API reports the WAN IP as `ipAddress` for gateways, so the `primary_ip4` match (`gateway_ip == device_ip`) never fires for LAN-managed appliances. A new `first_private_ip` fallback tracks the first non-WAN private gateway IP encountered in the network config loop; if `primary_ip4` is still unset after the loop, it is assigned this LAN IP.
+
+**VPN network filter:**
+Legacy API network configs include VPN tunnel entries (`purpose: vpn-client / remote-user-vpn / site-vpn / openvpn`) which previously created spurious IPs (e.g. `10.13.13.x/32`) on the `mgmt` interface. These purposes are now skipped.
+
+**Deduplication:**
+When merging Integration API + Legacy API network configs the same network could appear twice. Records are now deduplicated by `(name, purpose, vlanId)` before processing.
+
+**Removed — untagged_vlan on virtual gateway interfaces:**
+NetBox's `Interface.clean()` rejects `untagged_vlan` for non-access-mode interfaces. Virtual gateway VLAN interfaces (e.g. `vlan10`) do not need this link anyway — their name and IP address already identify the VLAN unambiguously.
+
+### Files changed
+
+| File | Change |
+|---|---|
+| `netbox_unifi_sync/services/sync_engine.py` | `first_private_ip` fallback; VPN purpose filter; `(name,purpose,vlanId)` dedup; removed `untagged_vlan` assignment |
+
+---
+
+## [0.3.12] - 2026-02-28
+
+### Fixed — **Security Appliance VLAN interfaces and IPs missing with Integration API**
+
+`sync_gateway_interfaces()` only fetched network configs from the Integration API (`site_obj.network_conf.all()`).  The Integration API omits `ip_subnet` / `gateway_ip` fields for many network entries, so no VLAN subinterfaces or IPs were created for Security Appliances when the controller used the Integration API.
+
+**Fix:** Added the same Legacy API fallback used by `sync_site_prefixes`: `_fetch_legacy_networkconf(unifi, site_obj)` is now called when a `unifi` session is available, and the results are merged with the Integration API results.
+
+`sync_gateway_interfaces` now accepts an optional `unifi=` keyword argument; the call site passes the active session.
+
+### Files changed
+
+| File | Change |
+|---|---|
+| `netbox_unifi_sync/services/sync_engine.py` | `sync_gateway_interfaces(unifi=None)` parameter; legacy networkconf fallback; updated call site |
+
+---
+
+## [0.3.11] - 2026-02-27
+
+### Added — **Client IP sync + Security Appliance interface sync**
+
+- Client IP addresses from UniFi are now synced to NetBox.
+- Security Appliance (GATEWAY role) interfaces are correctly created with names, types, and IP assignments.
+
+---
+
+## [0.3.10] - 2026-02-27
+
+### Added — **NetBox Change Log integration**
+
+All sync operations (create / update / delete) are now written to NetBox's built-in Change Log via `ChangeLoggingMixin`.
+
+---
+
+## [0.3.9] - 2026-02-27
+
+### Changed — Version bump
+
+---
+
+## [0.3.8] - 2026-02-27
+
+### Fixed — **Audit log bugs + complete interface/VLAN/WLAN/cable/IP sync**
+
+- Incorrect role assigned to some devices.
+- `interface` was `None` in some code paths — NoneType crash.
+- WLAN passphrase handled incorrectly in audit log.
+- Interface sync: all types (ethernet, SFP, WiFi) synced correctly.
+- VLAN sync: VLAN groups and VLAN ID matching corrected.
+- WLAN sync: SSIDs and security settings synced.
+- Cable sync: cables created with correct terminations.
+- IP sync: primary IP assigned to correct interface.
+- UniFi Integration API v1 gateway port field normalization — avoids `KeyError` on missing port data.
+
+---
+
+## [0.3.7] - 2026-02-27
+
+### Fixed — **16 Bandit CI errors + cable sync bugs + 5 ORM compatibility errors**
+
+- B607 (start process with partial path), misplaced docstring, and other Bandit static-analysis warnings.
+- `_ChoiceValue` wrapper for cable-type choices.
+- `get()` positional PK error in cable termination.
+- Field name `last_updated` used incorrectly in `update_fields`.
+- ORM fields aligned to NetBox 4.x naming conventions.
+
+---
+
+## [0.3.6] - 2026-02-27
+
+### Changed — Version bump
+
+---
+
+## [0.3.5] - 2026-02-27
+
+### Changed — **Refactor: consolidate `unifi2netbox/` into `netbox_unifi_sync/`**
+
+The separate `unifi2netbox/` package has been removed. All sync logic is now consolidated under `netbox_unifi_sync/services/`, simplifying imports and deployment.
+
+---
+
+## [0.3.4] - 2026-02-27
+
+### Changed — **CI: publish to PyPI directly from release workflow**
+
+---
+
+## [0.3.3] - 2026-02-27
+
+### Changed — **Canonical role keys migration**
+
+Old role keys (`SWITCH`, `SECURITY`, `OTHER`, `PHONE`) are automatically migrated to the canonical set (`WIRELESS`, `LAN`, `GATEWAY`, `ROUTER`, `UNKNOWN`) via `_migrate_role_keys()` which runs at plugin startup.
+
+---
+
+## [0.3.2] - 2026-02-26
+
+### Fixed — **TemplateSyntaxError in settings.html**
+
+Removed Jinja2 macro blocks from `settings.html` — NetBox uses Django templates, not Jinja2.
+
+---
+
+## [0.3.1] - 2026-02-26
+
+### Fixed — **ORM adapter IP assignment**
+
+`assigned_object_type` and `primary_ip4` are now set correctly on VirtualMachine and Device objects.
+
+---
+
+## [0.3.0] - 2026-02-26
+
+### Changed — **ChangeLoggingMixin added to key models**
+
+`GlobalSyncSettings`, `UnifiController`, `SiteMapping`, and `SyncRun` now integrate with NetBox's Change Log.
+
+---
+
+## [0.2.9] - 2026-02-26
+
+### Fixed — **Protect Front Port / Rear Port cables from sync overwrite**
+
+Cables on patch-panel ports are no longer overwritten by sync.
+
+---
+
+## [0.2.8] - 2026-02-26
+
+### Added — **Register plugin models as NetBox ObjectTypes**
+
+Plugin models are now available in NetBox's Content Type framework (webhooks, scripts, etc.).
+
+---
+
+## [0.2.7] - 2026-02-26
+
+### Fixed — **Cable creation via ORM**
+
+`CableTermination` rows are now created correctly when a cable is created. Cable sync works end-to-end.
+
+---
+
+## [0.2.6] - 2026-02-26
+
+### Changed — **Settings page redesign**
+
+Grouped Bootstrap card sections with a user-friendly overview of all sync settings.
+
+---
+
 ## [0.2.5] - 2026-02-26
 
 ### Changed — **JSON fields replaced with user-friendly inputs**

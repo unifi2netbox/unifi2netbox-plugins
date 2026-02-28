@@ -118,6 +118,8 @@ flowchart TD
 ## Features
 
 - Device sync (devices, interfaces, VLANs, prefixes, WLANs, uplink relations, IP assignments)
+- **Security Appliance sync** — VLAN subinterfaces and gateway IPs created correctly, including Integration API controllers
+- **MAC address sync** — per-port MACs (Legacy API) or device base MAC on Port 1 (Integration API); NetBox 4.5 `MACAddress` model compatible
 - DHCP scope sync to NetBox IP Ranges
 - UniFi auth via API key or legacy login (username/password + optional MFA)
 - Manual and scheduled sync jobs
