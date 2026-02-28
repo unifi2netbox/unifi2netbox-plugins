@@ -24,19 +24,17 @@ python manage.py migrate
 # restart netbox + netbox-worker
 ```
 
-### `could not be found` for `http://localhost/api/...` or `http://127.0.0.1/api/...`
+### `could not be found` for `http://localhost/api/...`
 
-The sync worker auto-detects the internal NetBox URL. If it resolves to the wrong host or port:
+This error only appeared in plugin versions 0.1.x which used internal HTTP self-calls to the NetBox REST API. Since **v0.2.0** the plugin accesses NetBox directly via the Django ORM — no HTTP self-call is made, so there is no URL to configure.
 
-1. Go to **Plugins → UniFi Sync → Settings**
-2. Set **NetBox URL** to the internal API base, e.g. `http://127.0.0.1:8000`
-3. Save and re-run
+Upgrade to the latest version to resolve this:
 
-Or set `NETBOX_URL=http://127.0.0.1:8000` in the NetBox worker environment.
-
-This is most common on Debian/venv installs where gunicorn listens on port 8000.
-
-Requires plugin version 0.1.8 or later.
+```bash
+pip install --upgrade netbox-unifi-sync
+python manage.py migrate
+# restart netbox + netbox-worker
+```
 
 ### Connection timeout / connection refused
 

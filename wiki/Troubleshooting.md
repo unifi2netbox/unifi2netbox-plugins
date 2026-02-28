@@ -17,9 +17,9 @@ Most common cause: missing site mapping.
 
 Validate UniFi site names vs NetBox site names and add mapping rows.
 
-## Dry-run fails with NetBox API URL
+## Connection error to `netbox:8080` or `http://localhost`
 
-The plugin auto-resolves the internal NetBox URL from Django settings. If you see a connection error to `netbox:8080`, upgrade to the latest version:
+This only occurs with plugin version 0.1.x which used HTTP self-calls to NetBox. Since v0.2.0 the plugin uses the Django ORM directly — no internal HTTP call is needed. Upgrade to the latest version:
 
 ```bash
 pip install --upgrade netbox-unifi-sync
