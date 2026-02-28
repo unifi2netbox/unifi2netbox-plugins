@@ -1527,6 +1527,45 @@ def _fetch_integration_device_detail(unifi, site_obj, device_id):
     return None
 
 
+def _set_interface_mac(iface_obj, mac_str):
+    """Set (or update) the primary MAC address on a NetBox 4.5 Interface.
+
+    NetBox 4.5 uses a separate MACAddress model rather than Interface.mac_address.
+    iface_obj may be an _OrmObject wrapper or a raw Django Interface instance.
+    """
+    if not mac_str:
+        return
+    try:
+        from dcim.models import MACAddress, Interface as DjangoInterface
+        from django.contrib.contenttypes.models import ContentType
+
+        # Normalise to "AA:BB:CC:DD:EE:FF"
+        clean = mac_str.upper().replace("-", ":").replace(".", ":")
+        if ":" not in clean and len(clean) == 12:
+            clean = ":".join(clean[i:i+2] for i in range(0, 12, 2))
+
+        # Get underlying Django instance from _OrmObject wrapper if needed
+        try:
+            raw = object.__getattribute__(iface_obj, "_instance")
+        except AttributeError:
+            raw = iface_obj
+
+        cur = raw.primary_mac_address
+        if cur and str(cur.mac_address).upper() == clean:
+            return  # already correct
+
+        ct = ContentType.objects.get_for_model(DjangoInterface)
+        mac_obj, _ = MACAddress.objects.get_or_create(
+            mac_address=clean,
+            assigned_object_type=ct,
+            assigned_object_id=raw.pk,
+        )
+        DjangoInterface.objects.filter(pk=raw.pk).update(primary_mac_address=mac_obj)
+        logger.debug(f"Set MAC {clean} on interface {raw.name}")
+    except Exception as e:
+        logger.debug(f"Could not set MAC {mac_str!r} on interface: {e}")
+
+
 def sync_device_interfaces(nb, nb_device, device, api_style="integration", unifi=None, site_obj=None):
     """
     Sync physical port and radio interfaces from UniFi device data to NetBox.
@@ -1596,9 +1635,9 @@ def sync_device_interfaces(nb, nb_device, device, api_style="integration", unifi
             iface_data["poe_mode"] = port["poe_mode"]
         if port.get("description"):
             iface_data["description"] = port["description"]
-        if port.get("mac_address"):
-            iface_data["mac_address"] = port["mac_address"]
+        port_mac = port.get("mac_address")  # handled separately via MACAddress model
 
+        resolved_iface = None
         if existing:
             needs_update = False
             for key, value in iface_data.items():
@@ -1619,13 +1658,29 @@ def sync_device_interfaces(nb, nb_device, device, api_style="integration", unifi
                     logger.debug(f"Updated interface {iface_name} on {device_name}")
                 except pynetbox.core.query.RequestError as e:
                     logger.warning(f"Failed to update interface {iface_name} on {device_name}: {e}")
+            resolved_iface = existing
         else:
             try:
                 new_iface = nb.dcim.interfaces.create(iface_data)
                 if new_iface:
                     logger.info(f"Created interface {iface_name} (ID {new_iface.id}) on {device_name}")
+                    resolved_iface = new_iface
             except pynetbox.core.query.RequestError as e:
                 logger.warning(f"Failed to create interface {iface_name} on {device_name}: {e}")
+
+        if port_mac and resolved_iface:
+            _set_interface_mac(resolved_iface, port_mac)
+
+    # If no per-port MACs were in the UniFi data (e.g. Integration API), set the device
+    # base MAC on Port 1 (or the first physical port created).
+    device_mac = get_device_mac(device)
+    if device_mac and ports and not any(p.get("mac_address") for p in ports):
+        first_port_name = ports[0]["name"]
+        first_iface = existing_interfaces.get(first_port_name) or nb.dcim.interfaces.get(
+            device_id=nb_device.id, name=first_port_name
+        )
+        if first_iface:
+            _set_interface_mac(first_iface, device_mac)
 
     # --- Radio Interfaces (APs only) ---
     if is_access_point_device(device):
