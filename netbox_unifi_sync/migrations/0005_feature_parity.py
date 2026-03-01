@@ -9,7 +9,6 @@ unifi2netbox CLI tool:
 * dhcp_ranges       — manual DHCP CIDR ranges (one per line)
 * sync_dhcp_ranges  — toggle syncing DHCP IP ranges to IPAM
 """
-import django.db.models.deletion
 from django.db import migrations, models
 
 

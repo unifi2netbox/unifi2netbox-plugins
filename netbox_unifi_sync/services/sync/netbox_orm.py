@@ -243,7 +243,6 @@ class _Endpoint:
             # ``contains`` is a custom prefix lookup used in ipam
             if key == "contains":
                 try:
-                    from netaddr import IPAddress, IPNetwork
                     translated["prefix__net_contains_or_equals"] = str(value)
                 except Exception:
                     translated["prefix__contains"] = str(value)

@@ -4,7 +4,6 @@ import json
 from slugify import slugify
 import os
 import re
-import requests
 import warnings
 import logging
 import ipaddress
@@ -19,19 +18,16 @@ from .sync.ipam import (
     _get_network_info_for_ip,
     _fetch_legacy_networkconf,
     extract_dhcp_pools_from_unifi,
-    extract_dhcp_ranges_from_unifi,  # backward-compatible test/import surface
     find_available_static_ip,
     is_ip_in_dhcp_range,
     set_unifi_device_static_ip,
 )
 from .sync.runtime_config import (
-    _netbox_verify_ssl,
     _parse_env_bool,
     _read_env_int,
-    _sync_interval_seconds,
     load_runtime_config,
 )
-from .sync.runtime_config import _unifi_verify_ssl  # noqa: F401
+from .sync.runtime_config import _unifi_verify_ssl, _netbox_verify_ssl, _sync_interval_seconds  # noqa: F401
 from .sync.log_sanitizer import SensitiveDataFormatter
 from .sync.vrf import get_or_create_vrf, get_vrf_for_site  # noqa: F401
 from .unifi.unifi import Unifi

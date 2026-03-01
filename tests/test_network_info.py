@@ -132,11 +132,11 @@ class TestGetNetworkInfoForIp:
 
 
 # ---------------------------------------------------------------------------
-#  extract_dhcp_ranges_from_unifi – network info extraction
+#  extract_dhcp_pools_from_unifi – network info extraction
 # ---------------------------------------------------------------------------
 
 class FakeSiteObj:
-    """Minimal site_obj mock for extract_dhcp_ranges_from_unifi."""
+    """Minimal site_obj mock for extract_dhcp_pools_from_unifi."""
 
     def __init__(self, net_configs, site_id="site-abc"):
         self.id = site_id
@@ -153,7 +153,7 @@ class FakeNetworkConfEndpoint:
 
 
 class TestExtractDhcpRangesNetworkInfo:
-    """Tests that extract_dhcp_ranges_from_unifi populates _unifi_network_info."""
+    """Tests that extract_dhcp_pools_from_unifi populates _unifi_network_info."""
 
     def setup_method(self):
         main._unifi_network_info.clear()
@@ -175,10 +175,10 @@ class TestExtractDhcpRangesNetworkInfo:
             }
         ]
         site = FakeSiteObj(configs, site_id="site-001")
-        ranges = main.extract_dhcp_ranges_from_unifi(site)
+        ranges = main.extract_dhcp_pools_from_unifi(site)
 
         assert len(ranges) == 1
-        assert str(ranges[0]) == "10.0.0.0/24"
+        assert str(ranges[0]['network']) == "10.0.0.0/24"
 
         # Check network info was stored
         info = main._unifi_network_info.get("site-001")
@@ -196,7 +196,7 @@ class TestExtractDhcpRangesNetworkInfo:
             }
         ]
         site = FakeSiteObj(configs, site_id="site-002")
-        ranges = main.extract_dhcp_ranges_from_unifi(site)
+        ranges = main.extract_dhcp_pools_from_unifi(site)
 
         assert len(ranges) == 1
         info = main._unifi_network_info.get("site-002")
@@ -217,7 +217,7 @@ class TestExtractDhcpRangesNetworkInfo:
             }
         ]
         site = FakeSiteObj(configs, site_id="site-003")
-        main.extract_dhcp_ranges_from_unifi(site)
+        main.extract_dhcp_pools_from_unifi(site)
 
         info = main._unifi_network_info["site-003"]
         assert info[0]["dns"] == ["1.1.1.1", "8.8.8.8"]
@@ -245,7 +245,7 @@ class TestExtractDhcpRangesNetworkInfo:
             },
         ]
         site = FakeSiteObj(configs, site_id="site-004")
-        ranges = main.extract_dhcp_ranges_from_unifi(site)
+        ranges = main.extract_dhcp_pools_from_unifi(site)
 
         # Only 2 DHCP-enabled networks
         assert len(ranges) == 2
@@ -264,7 +264,7 @@ class TestExtractDhcpRangesNetworkInfo:
             }
         ]
         site = FakeSiteObj(configs, site_id="site-005")
-        ranges = main.extract_dhcp_ranges_from_unifi(site)
+        ranges = main.extract_dhcp_pools_from_unifi(site)
 
         assert len(ranges) == 0
         assert "site-005" not in main._unifi_network_info
@@ -282,7 +282,7 @@ class TestExtractDhcpRangesNetworkInfo:
             }
         ]
         site = FakeSiteObj(configs, site_id="site-006")
-        ranges = main.extract_dhcp_ranges_from_unifi(site)
+        ranges = main.extract_dhcp_pools_from_unifi(site)
 
         assert len(ranges) == 1
         info = main._unifi_network_info["site-006"]
