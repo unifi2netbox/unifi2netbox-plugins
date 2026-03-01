@@ -174,6 +174,14 @@ class GlobalSyncSettings(_ChangeLoggingMixin, models.Model):
             self.netbox_device_status = status
         if self.sync_interval_minutes < 1:
             errors["sync_interval_minutes"] = "sync_interval_minutes must be >= 1."
+        if self.request_timeout < 1:
+            errors["request_timeout"] = "request_timeout must be >= 1."
+        if self.max_controller_threads < 1:
+            errors["max_controller_threads"] = "max_controller_threads must be >= 1."
+        if self.max_site_threads < 1:
+            errors["max_site_threads"] = "max_site_threads must be >= 1."
+        if self.max_device_threads < 1:
+            errors["max_device_threads"] = "max_device_threads must be >= 1."
         if self.retry_backoff_base <= 0:
             errors["retry_backoff_base"] = "retry_backoff_base must be > 0."
         if self.retry_backoff_max < self.retry_backoff_base:
