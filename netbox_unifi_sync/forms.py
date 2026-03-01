@@ -250,7 +250,7 @@ class UnifiControllerForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        direct_secret_help = "Paste the credential value directly in this field."
+        direct_secret_help = "Paste the credential value directly in this field."  # nosec B105
         self.fields["api_key_ref"].help_text = direct_secret_help
         self.fields["username_ref"].help_text = direct_secret_help
         self.fields["password_ref"].help_text = direct_secret_help

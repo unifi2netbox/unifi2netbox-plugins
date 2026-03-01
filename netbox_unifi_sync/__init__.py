@@ -43,8 +43,8 @@ class NetBoxUnifiSyncConfig(PluginConfig):
                 SyncRun,
                 PluginAuditEvent,
             )
-        except Exception:
-            pass  # NetBox version without register_models — graceful degradation
+        except Exception:  # nosec B110 — intentional: unknown exception from NetBox plugin API
+            pass  # graceful degradation when register_models is unavailable
 
 
 config = NetBoxUnifiSyncConfig

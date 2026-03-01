@@ -249,9 +249,9 @@ class UnifiController(_ChangeLoggingMixin, models.Model):
         # Runtime sync/test enforces auth requirements for the selected mode.
         if self.auth_mode == AuthMode.LOGIN:
             if self.username_ref and not self.password_ref:
-                errors["password_ref"] = "password_ref is required when username_ref is set for auth_mode=login"
+                errors["password_ref"] = "password_ref is required when username_ref is set for auth_mode=login"  # nosec B105
             if self.password_ref and not self.username_ref:
-                errors["username_ref"] = "username_ref is required when password_ref is set for auth_mode=login"
+                errors["username_ref"] = "username_ref is required when password_ref is set for auth_mode=login"  # nosec B105
 
         if self.retry_backoff_base is not None and self.retry_backoff_base <= 0:
             errors["retry_backoff_base"] = "retry_backoff_base must be > 0"

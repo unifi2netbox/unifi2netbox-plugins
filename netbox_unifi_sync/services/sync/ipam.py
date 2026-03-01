@@ -35,8 +35,8 @@ def _fetch_assigned_ips_for_network(network_str: str) -> list:
     for ip_obj in assigned_qs:
         try:
             result.append(str(_ipaddress.ip_interface(str(ip_obj.address)).ip))
-        except Exception:
-            pass
+        except ValueError as exc:
+            logger.debug("Skipping unparseable IP address %r: %s", ip_obj.address, exc)
     return result
 
 

@@ -140,7 +140,7 @@ class _OrmObject:
                 from django.contrib.contenttypes.models import ContentType
                 app_label, model_name = value.split(".", 1)
                 value = ContentType.objects.get(app_label=app_label, model=model_name)
-            except Exception:
+            except (ValueError, LookupError):
                 pass  # fall through and let Django handle/reject it
         if name in _OrmObject._INT_FK_FIELDS and isinstance(value, int):
             # Rewrite bare FK name to attname (primary_ip4 → primary_ip4_id)
@@ -161,8 +161,8 @@ class _OrmObject:
         if instance.pk and hasattr(instance, 'snapshot'):
             try:
                 instance.snapshot()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("snapshot() failed on %r (non-fatal): %s", instance, exc)
         if update_fields:
             instance.save(update_fields=update_fields)
         else:
@@ -254,7 +254,7 @@ class _Endpoint:
                     app_label, model_name = str(value).split(".", 1)
                     ct = ContentType.objects.get(app_label=app_label, model=model_name)
                     translated[key] = ct
-                except Exception:
+                except (ValueError, LookupError):
                     pass  # silently ignore unresolvable content-type strings
             elif key == "scope_id":
                 translated["scope_id"] = value
@@ -371,7 +371,7 @@ class _Endpoint:
                     app_label, model_name = value.split(".", 1)
                     ct = ContentType.objects.get(app_label=app_label, model=model_name)
                     direct[key] = ct
-                except Exception:
+                except (ValueError, LookupError):
                     pass  # skip unresolvable content-type strings
             elif key == "a_terminations" and isinstance(value, list):
                 # Cable A-end terminations — handled after save
@@ -411,13 +411,13 @@ class _Endpoint:
                         app_label, model_name = item.split(".", 1)
                         ct = ContentType.objects.get(app_label=app_label, model=model_name)
                         field.add(ct)
-                    except Exception:
-                        pass
+                    except (ValueError, LookupError) as exc:
+                        logger.debug("M2M ContentType add skipped for %r: %s", item, exc)
                 else:
                     try:
                         field.add(item)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("M2M field.add skipped for %r: %s", item, exc)
 
         # Create CableTermination rows for Cable a_terminations / b_terminations.
         # Each entry is {"object_type": "dcim.interface", "object_id": <int>}.

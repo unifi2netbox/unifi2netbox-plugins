@@ -779,8 +779,8 @@ def sync_uplink_cable(nb, nb_device, device, all_nb_devices_by_mac):
                     f"— existing cable connects to a front/rear port (patch panel)"
                 )
                 return
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Cable patch-port check failed for %s/%s: %s", device_name, our_iface.name, exc)
         logger.debug(f"Cable sync for {device_name}: cable already exists on {our_iface.name}")
         return
 
@@ -817,8 +817,8 @@ def sync_uplink_cable(nb, nb_device, device, all_nb_devices_by_mac):
                     f"connects to a front/rear port — skipping"
                 )
                 return
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Cable patch-port check failed for upstream %s/%s: %s", upstream_nb.name, upstream_iface.name, exc)
         logger.debug(f"Cable sync for {device_name}: upstream {upstream_nb.name}:{upstream_iface.name} already has a cable — skipping")
         return
 
@@ -1854,8 +1854,8 @@ def sync_gateway_interfaces(nb, nb_device, device, site_obj, tenant, vrf, unifi=
         interface = None
         try:
             interface = nb.dcim.interfaces.get(device_id=nb_device.id, name=iface_name)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Interface lookup failed for %s/%s: %s", device_name, iface_name, exc)
 
         if not interface:
             iface_payload = {
@@ -1880,8 +1880,8 @@ def sync_gateway_interfaces(nb, nb_device, device, site_obj, tenant, vrf, unifi=
         nb_ip = None
         try:
             nb_ip = nb.ipam.ip_addresses.get(address=ip_with_mask)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("IP lookup failed for %s: %s", ip_with_mask, exc)
 
         if not nb_ip:
             ip_payload = {
@@ -2641,8 +2641,8 @@ def process_device(unifi, nb, site, device, nb_ubiquity, tenant, unifi_device_ip
                     try:
                         old_ip_obj.description = device_name
                         old_ip_obj.save()
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("Could not update IP description for %s: %s", device_name, exc)
                 return
 
             interface = nb.dcim.interfaces.get(device_id=nb_device.id, name="vlan.1")

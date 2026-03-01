@@ -30,10 +30,10 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "api_key": "",
     "unifi_api_key": "",
     "unifi_api_key_header": "X-API-KEY",
-    "username": "",
+    "username": "",  # nosec B105
     "unifi_username": "",
-    "password": "",
-    "unifi_password": "",
+    "password": "",  # nosec B105 — empty default, not a hardcoded credential
+    "unifi_password": "",  # nosec B105
     "unifi_mfa_secret": "",
     "verify_ssl": True,
     "unifi_verify_ssl": True,
@@ -129,7 +129,7 @@ _ENV_MAP: dict[str, str] = {
     "default_site_name": "NETBOX_DEFAULT_SITE",
     "rate_limit_per_second": "UNIFI_RATE_LIMIT_PER_SECOND",
     "netbox_url": "NETBOX_URL",
-    "netbox_token": "NETBOX_TOKEN",
+    "netbox_token": "NETBOX_TOKEN",  # nosec B105
 }
 
 
